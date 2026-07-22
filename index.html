@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Manga Nexus</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script src="data/characters.js"></script>
+	<script src="data/equips.js"></script>
+	<script src="data/enemies.js"></script>
+	<script src="data/dungeons.js"></script>
+	<script src="data/tower.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+	<style>
+		body {
+			font-family: 'Inter', sans-serif;
+			-webkit-user-select: none;
+			/* Safari */
+			-ms-user-select: none;
+			/* IE 10 and IE 11 */
+			user-select: none;
+			/* Standard syntax */
+		}
+
+		.modal-backdrop {
+			background-color: rgba(0, 0, 0, 0.7);
+		}
+
+		.modal {
+			max-height: 85vh;
+		}
+
+		.scrollbar-thin::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		.scrollbar-thin::-webkit-scrollbar-track {
+			background: #1a202c;
+		}
+
+		.scrollbar-thin::-webkit-scrollbar-thumb {
+			background-color: #4a5568;
+			border-radius: 20px;
+		}
+
+		.card-item {
+			transition: transform 0.2s, box-shadow 0.2s;
+		}
+
+		.card-item:hover {
+			transform: translateY(-5px);
+			box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+		}
+
+		.star-1 {
+			color: #FFFFFF;
+		}
+
+		.star-2 {
+			color: #16a34a;
+		}
+
+		/* green-600 */
+		.star-3 {
+			color: #2563eb;
+		}
+
+		/* blue-600 */
+		.star-4 {
+			color: #9333ea;
+		}
+
+		/* purple-600 */
+		.star-5 {
+			color: #dc2626;
+		}
+
+		/* red-600 */
+	</style>
+</head>
+
+<body class="bg-gray-900 text-white">
+	<!-- Hidden file input for loading game -->
+	<input type="file" id="load-game-input" class="hidden" accept=".json" onchange="handleFileLoad(event)">
+
+
+	<!-- Login Screen -->
+	<div id="login-screen"
+		class="min-h-screen flex items-center justify-center bg-cover bg-center relative overflow-hidden"
+		style="background-image: url('./images/login.png');">
+
+		<!-- Lớp nền tối mờ -->
+		<div class="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm animate-fadeIn"></div>
+
+		<!-- Nội dung chính -->
+		<div class="relative text-center p-6 bg-black bg-opacity-60 rounded-2xl shadow-2xl animate-float">
+
+			<!-- Logo phát sáng nhẹ -->
+			<h1 class="text-5xl sm:text-6xl font-bold mb-10 tracking-wider text-yellow-400 animate-glow">
+				Manga Nexus
+			</h1>
+
+			<!-- Các nút -->
+			<div class="flex flex-col space-y-4 w-72 mx-auto">
+				<button onclick="startGame()"
+					class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-green-400/40 transition duration-300 transform hover:scale-105">
+					Start Game
+				</button>
+
+				<button onclick="loadGame()"
+					class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-blue-400/40 transition duration-300 transform hover:scale-105">
+					Load Game
+				</button>
+
+				<button onclick="document.getElementById('load-game-input').click()"
+					class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-gray-400/40 transition duration-300 transform hover:scale-105">
+					Upload Save File
+				</button>
+
+				<button onclick="showModal('instructions-modal')"
+					class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-yellow-300/40 transition duration-300 transform hover:scale-105">
+					Hướng Dẫn
+				</button>
+
+				<button onclick="showModal('changelog-modal')"
+					class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-yellow-300/40 transition duration-300 transform hover:scale-105">
+					Change Log
+				</button>
+
+				<button onclick="showModal('about-modal')"
+					class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-yellow-300/40 transition duration-300 transform hover:scale-105">
+					About
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Hiệu ứng CSS -->
+	<style>
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+			}
+
+			to {
+				opacity: 1;
+			}
+		}
+
+		.animate-fadeIn {
+			animation: fadeIn 1s ease-out forwards;
+		}
+
+		@keyframes float {
+
+			0%,
+			100% {
+				transform: translateY(0);
+			}
+
+			50% {
+				transform: translateY(-6px);
+			}
+		}
+
+		.animate-float {
+			animation: float 3s ease-in-out infinite;
+		}
+
+		@keyframes float-rev {
+
+			0%,
+			100% {
+				transform: translateY(0);
+			}
+
+			50% {
+				transform: translateY(6px);
+			}
+		}
+
+		.animate-float-rev {
+			animation: float-rev 3s ease-in-out infinite;
+		}
+
+		@keyframes glow {
+
+			0%,
+			100% {
+				text-shadow: 0 0 10px rgba(255, 255, 100, 0.8),
+					0 0 20px rgba(255, 255, 0, 0.6);
+			}
+
+			50% {
+				text-shadow: 0 0 20px rgba(255, 255, 180, 1),
+					0 0 40px rgba(255, 255, 0, 0.8);
+			}
+		}
+
+		.animate-glow {
+			animation: glow 2.5s ease-in-out infinite;
+		}
+
+		@keyframes logFadeIn {
+			from {
+				opacity: 0;
+				transform: translateY(10px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.log-line {
+			animation: logFadeIn 0.4s ease-out forwards;
+		}
+
+		@keyframes combat-player {
+
+			0%,
+			100% {
+				transform: translateX(0);
+			}
+
+			50% {
+				transform: translateX(10px);
+			}
+
+			/* tiến lên */
+		}
+
+		@keyframes combat-enemy {
+
+			0%,
+			100% {
+				transform: translateX(0);
+			}
+
+			50% {
+				transform: translateX(-10px);
+			}
+
+			/* tiến lên từ phải qua */
+		}
+
+		.animate-combat-player {
+			animation: combat-player 1.2s ease-in-out infinite;
+		}
+
+		.animate-combat-enemy {
+			animation: combat-enemy 1.2s ease-in-out infinite;
+		}
+
+		.gallery-item {
+			position: relative;
+			text-align: center;
+			transition: transform 0.2s ease, filter 0.2s ease;
+		}
+
+		.gallery-item img {
+			width: 100%;
+			height: auto;
+			border-radius: 10px;
+			object-fit: cover;
+		}
+
+		.gallery-item.locked {
+			filter: grayscale(100%) brightness(40%);
+		}
+
+		.gallery-item.unlocked:hover {
+			transform: scale(1.05);
+			cursor: pointer;
+		}
+
+		.gallery-item p {
+			margin-top: 4px;
+			font-size: 0.85rem;
+			color: #ddd;
+		}
+	</style>
+
+
+	<!-- Main Game Screen -->
+	<div id="main-screen" class="hidden p-4 max-w-7xl mx-auto bg-cover bg-center"
+		style="background-image: url('./images/galaxy1.png'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+			<!-- Left Panel: Player Info -->
+			<div class="lg:col-span-1 bg-gray-800 p-4 sm:p-6 rounded-lg shadow-xl">
+				<h2 class="text-2xl font-bold mb-4 text-yellow-400 border-b-2 border-gray-700 pb-2">Thông Tin</h2>
+				<div class="flex flex-col items-start mb-6 bg-gray-700 p-3 rounded-lg text-lg font-semibold space-y-2">
+					<div class="flex items-center gap-2">
+						<span class="text-yellow-400">Vàng:</span>
+						<span id="gold-display" class="font-bold text-white">0</span>
+					</div>
+
+					<div class="flex items-center gap-2">
+						<span class="text-purple-400">Mảnh Linh Hồn:</span>
+						<span id="soul-display" class="font-bold text-white">0</span>
+					</div>
+
+					<div class="flex items-center gap-2">
+						<span class="text-gray-300">Thỏi Sắt:</span>
+						<span id="iron-display" class="font-bold text-white">0</span>
+					</div>
+				</div>
+
+				<h3 class="text-xl font-semibold text-cyan-400">Nhân Vật</h3>
+				<div class="flex items-stretch gap-4 mb-6">
+					<img id="equipped-image" src="" alt="Nhân vật" class="rounded-lg object-cover h-[80px] w-[80px]">
+					<div id="equipped-character" class="bg-gray-700 p-4 rounded-lg flex-1"></div>
+				</div>
+
+				<h3 class="text-xl font-semibold mb-3 text-cyan-400">Trang Bị</h3>
+				<div id="equipped-equipment" class="bg-gray-700 p-4 rounded-lg mb-6 min-h-[80px]"></div>
+
+				<h3 class="text-xl font-semibold mb-3 text-green-400">Tổng Chỉ Số</h3>
+				<div id="total-stats" class="bg-gray-700 p-4 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm"></div>
+			</div>
+
+		<!-- Right Panel: Actions -->
+		<div
+			class="lg:col-span-2 bg-gray-900/90 bg-[url('./images/tower.png')] bg-cover bg-center p-6 rounded-2xl shadow-2xl flex flex-col items-center justify-center border border-yellow-500/20">
+			<h2
+				class="text-3xl font-extrabold mb-8 text-yellow-400 drop-shadow-[0_0_6px_rgba(255,255,0,0.6)] tracking-wider">
+				⚔️ Hành Động
+			</h2>				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
+					<button onclick="showModal('characters-modal')"
+						class="sm:col-span-2 bg-gradient-to-r from-purple-700 to-pink-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-pink-400/40 hover:shadow-[0_0_15px_rgba(255,100,255,0.6)]">
+						🧙‍♂️ Nhân Vật
+					</button>
+
+					<button onclick="showModal('equipment-modal')"
+						class="sm:col-span-2 bg-gradient-to-r from-amber-600 to-orange-500 text-gray-100 font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-yellow-400/40 hover:shadow-[0_0_15px_rgba(255,200,50,0.6)]">
+						⚒️ Trang Bị
+					</button>
+
+					<button onclick="showTowerModal()"
+						class="sm:col-span-2 bg-gradient-to-r from-red-700 to-red-500 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-red-400/40 hover:shadow-[0_0_15px_rgba(255,80,80,0.6)]">
+						🏯 Tòa Tháp
+					</button>
+
+					<button onclick="showModal('dungeons-modal')"
+						class="sm:col-span-2 bg-gradient-to-r from-indigo-700 to-violet-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-violet-400/40 hover:shadow-[0_0_15px_rgba(150,100,255,0.6)]">
+						🌌 Cổng Thế Giới
+					</button>
+
+					<button onclick="showGallery()"
+						class="sm:col-span-2 bg-gradient-to-r from-cyan-600 to-blue-500 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-blue-400/40 hover:shadow-[0_0_15px_rgba(100,200,255,0.6)]">
+						📚 Thư Viện
+					</button>
+
+					<button onclick="showModal('quests-modal')"
+						class="sm:col-span-2 bg-gradient-to-r from-emerald-600 to-lime-500 text-gray-900 font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-lime-400/40 hover:shadow-[0_0_15px_rgba(180,255,100,0.6)]">
+						🎯 Nhiệm Vụ
+					</button>
+				</div>
+
+				<div class="mt-10 w-full max-w-md">
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
+						<button onclick="saveGame(true)"
+							class="w-full bg-gradient-to-r from-teal-600 to-green-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-green-400/40 hover:shadow-[0_0_15px_rgba(100,255,150,0.6)]">
+							💾 Save Game
+						</button>
+						<button onclick="downloadGame()"
+							class="w-full bg-gradient-to-r from-blue-600 to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-blue-400/40 hover:shadow-[0_0_15px_rgba(120,180,255,0.6)]">
+							📥 Download Save File
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Dungeon Progress Screen -->
+	<div id="dungeon-progress-screen"
+		class="hidden fixed inset-0 bg-gray-900 bg-opacity-95 flex flex-col items-center justify-center p-4">
+		<h2 id="dungeon-progress-title" class="text-2xl sm:text-4xl text-center font-bold mb-4 text-yellow-400"></h2>
+
+		<p class="text-lg mb-2">
+			Lần lặp: <span id="dungeon-repeat-current">1</span> / <span id="dungeon-repeat-total">1</span>
+		</p>
+
+		<!-- Hàng ảnh nhân vật & đối thủ -->
+		<div class="flex items-center justify-between w-full max-w-md mb-6">
+			<div class="flex flex-col items-center">
+				<img id="equipped-image-progress" src="./images/chars/missingChar.png"
+					alt="Nhân vật" class="rounded-lg object-cover h-[80px] w-[80px] animate-combat-player">
+				<p class="text-sm mt-2 text-yellow-300 font-semibold">Bạn</p>
+			</div>
+
+			<div class="flex flex-col items-center">
+				<img id="enemy-image" src="./images/chars/missingEnemy.png" alt="Đối thủ"
+					class="rounded-lg object-cover h-[80px] w-[80px] animate-combat-enemy">
+				<p id="enemy-name-display" class="text-sm mt-2 text-red-400 font-semibold">Đối thủ</p>
+			</div>
+		</div>
+
+		<p id="dungeon-timer" class="text-2xl font-mono mb-6"></p>
+
+		<div id="dungeon-log-container"
+			class="w-full max-w-4xl flex-grow bg-gray-800 rounded-lg p-4 overflow-y-auto scrollbar-thin mb-6 border border-gray-600 hidden">
+		</div>
+
+		<button id="stop-adventure-button" onclick="stopAdventure()"
+			class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300">
+			Ngừng Phiêu Lưu
+		</button>
+
+		<button id="adventure-confirm-button" onclick="showScreen('main-screen'); updateUI();"
+			class="hidden bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300">
+			Xác Nhận
+		</button>
+	</div>
+
+	<!-- Modals Container -->
+	<div id="modals">
+		<!-- Instructions Modal -->
+		<div id="instructions-modal"
+			class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-lg modal border border-gray-600 flex flex-col">
+
+				<!-- Header -->
+				<div class="p-4 sm:p-6 border-b border-gray-700 flex-shrink-0">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">📜 Hướng Dẫn</h3>
+				</div>
+
+				<!-- Nội dung chính -->
+				<div
+					class="p-4 sm:p-6 overflow-y-auto scrollbar-thin flex-grow space-y-4 leading-relaxed text-sm sm:text-base">
+
+					<!-- Tòa Tháp -->
+					<div class="bg-gray-700/40 p-3 rounded-lg border border-gray-600">
+						<h4 class="font-bold text-lg mb-2 text-red-400">🏯 Tòa Tháp</h4>
+						<p>Một kiến trúc bao gồm <strong class="text-yellow-300">100 tầng</strong>, mỗi tầng có một
+							<span class="text-cyan-300 font-semibold">Thủ Hộ</span> trấn giữ.
+						</p>
+						<p>Đánh bại thủ hộ tầng sẽ nhận được <span class="text-yellow-400 font-semibold">Vàng</span>,
+							<span class="text-purple-400 font-semibold">Mảnh Linh Hồn</span> và
+							<span class="text-gray-300 font-semibold">Thỏi Sắt</span>.
+						</p>
+						<p>Càng lên tầng cao, phần thưởng càng giá trị hơn!</p>
+					</div>
+
+					<!-- Cổng Thế Giới -->
+					<div class="bg-gray-700/40 p-3 rounded-lg border border-gray-600">
+						<h4 class="font-bold text-lg mb-2 text-indigo-400">🌌 Cổng Thế Giới</h4>
+						<p>Một cánh cổng kỳ lạ kết nối đến <span class="text-cyan-300 font-semibold">các thế giới khác
+								nhau</span>.</p>
+						<p><strong>Mỗi ngày</strong> các thế giới kết nối sẽ thay đổi.</p>
+						<p>Dùng <span class="text-yellow-400 font-semibold">Vàng</span> để gửi nhân vật vào khám phá -
+							bạn có cơ hội sở hữu <span class="text-purple-300 font-semibold">nhân vật</span> và
+							<span class="text-blue-300 font-semibold">trang bị</span> độc quyền của thế giới đó!
+						</p>
+					</div>
+
+					<!-- Chỉ số -->
+					<div>
+						<h4 class="font-bold text-lg mb-2 text-cyan-400">⚔️ Chỉ số:</h4>
+						<p class="mb-1"><strong class="text-red-400">HP:</strong> Máu, khi về 0 sẽ chết.</p>
+						<p class="mb-1"><strong class="text-orange-400">Attack:</strong> Tấn công.</p>
+						<p class="mb-1"><strong class="text-blue-400">Defense:</strong> Phòng thủ.</p>
+						<p class="mb-1"><strong class="text-green-400">Speed:</strong> Quyết định thứ tự hành động và
+							khả năng né tránh.
+							Cứ mỗi 2 điểm Speed = 1% né tránh (tối đa 75%).</p>
+						<p class="mb-1"><strong class="text-yellow-400">Luck:</strong> Quyết định tỷ lệ chí mạng
+							(critical).
+							Cứ 2 điểm Luck = 1% chí mạng, khi chí mạng xảy ra sẽ bỏ qua 50% Defense và nhân 1.5 sát
+							thương cuối cùng.</p>
+					</div>
+
+					<!-- Kỹ năng -->
+					<div>
+						<h4 class="font-bold text-lg mt-4 mb-2 text-cyan-400">✨ Kỹ năng:</h4>
+						<ul class="list-disc list-inside space-y-1">
+							<li>Mỗi nhân vật có 1 kỹ năng đánh thường và 2 kỹ năng đặc biệt với tỷ lệ sử dụng khác nhau.
+							</li>
+							<li>Nếu 2 kỹ năng đều kích hoạt, ưu tiên kỹ năng có <span
+									class="text-yellow-300 font-semibold">multiplier</span> cao hơn.</li>
+							<li>Nếu không kỹ năng nào kích hoạt → dùng đánh thường.</li>
+							<li>Nhân vật không dùng kỹ năng buff/debuff nếu hiệu ứng tương tự vẫn còn hiệu lực.</li>
+						</ul>
+					</div>
+
+					<!-- Sudden Death -->
+					<div>
+						<h4 class="font-bold text-lg mt-4 mb-2 text-cyan-400">💀 SUDDEN DEATH:</h4>
+						<p>Từ lượt 21 trở đi, chế độ <span class="text-red-400 font-semibold">SUDDEN DEATH</span> được
+							kích hoạt —
+							bên tấn công được cộng thêm sát thương bằng <code>(Số lượt - 20)</code>.</p>
+					</div>
+				</div>
+
+				<!-- Footer -->
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right flex-shrink-0 border-t border-gray-700">
+					<button onclick="hideModal('instructions-modal')"
+						class="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-500 hover:to-gray-600 text-white font-bold py-2 px-5 rounded-lg shadow-lg transition duration-300 transform hover:scale-105">
+						✖ Đóng
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Changelog Modal -->
+		<div id="changelog-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-lg modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">Change Log</h3>
+				</div>
+				<div id="changelog-content"
+					class="p-4 sm:p-6 overflow-y-auto scrollbar-thin flex-grow prose prose-invert prose-sm max-w-none">
+					<p class="text-gray-400">Loading...</p>
+				</div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('changelog-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- About Modal -->
+		<div id="about-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-lg modal border border-gray-600 text-center">
+				<div class="p-6 border-b border-gray-700">
+					<h3 class="text-2xl font-bold text-yellow-400">About</h3>
+				</div>
+				<div class="p-6">
+					<p class="mb-4">
+						Phiên bản ban đầu được tạo ra bởi <a href="https://www.facebook.com/share/1An7o1WpbL/"
+							target="_blank">Lãm Nguyễn</a>.
+					</p>
+					<p class="mb-4">Phiên bản fix + thêm tính năng tại</p>
+					<a href="https://github.com/sicay1/Manga-Nexus" target="_blank"
+						class="text-blue-400 hover:text-blue-300 text-4xl">
+						<i class="fa-brands fa-github"></i>
+					</a>
+				</div>
+
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('about-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Characters Modal -->
+		<div id="characters-modal"
+			class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-3xl modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">Danh Sách Nhân Vật (Click Vào Tên Để Xem
+						Chi Tiết)</h3>
+				</div>
+				<div id="character-list" class="p-2 sm:p-6 overflow-y-auto scrollbar-thin flex-grow"></div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('characters-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Equipment Modal -->
+		<div id="equipment-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-3xl modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">Danh Sách Trang Bị (Click Vào Tên Để Xem
+						Chi Tiết)</h3>
+				</div>
+				<div id="equipment-list" class="p-2 sm:p-6 overflow-y-auto scrollbar-thin flex-grow"></div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('equipment-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Dungeons Modal -->
+		<div id="dungeons-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-3xl modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">Danh Sách Thế Giới (Thay Đổi Mỗi Ngày -
+						Click Vào Tên Để Xem Chi Tiết)</h3>
+				</div>
+				<div id="dungeon-list" class="p-2 sm:p-6 overflow-y-auto scrollbar-thin flex-grow"></div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('dungeons-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Dungeon Info Modal -->
+		<div id="dungeon-info-modal"
+			class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-[60]">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-lg modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 id="dungeon-info-title" class="text-xl sm:text-2xl font-bold text-yellow-400">Vật phẩm có thể
+						nhận</h3>
+				</div>
+				<div id="dungeon-info-content" class="p-4 sm:p-6 overflow-y-auto scrollbar-thin flex-grow"></div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('dungeon-info-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Quests Modal -->
+		<div id="quests-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-3xl modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">Nhiệm Vụ Hàng Ngày</h3>
+				</div>
+				<div id="quest-list" class="p-6 overflow-y-auto scrollbar-thin flex-grow">
+					<p class="text-center text-gray-400">Tính năng đang được phát triển.</p>
+				</div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('quests-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Item Detail Modal -->
+		<div id="item-detail-modal"
+			class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-[60]">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-md modal border border-gray-600 flex flex-col">
+				<div id="item-detail-content" class="p-4 sm:p-6 overflow-y-auto scrollbar-thin flex-grow"></div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right flex-shrink-0">
+					<button onclick="hideModal('item-detail-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Upgrade Confirmation Modal -->
+		<div id="upgrade-confirm-modal"
+			class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-[70]">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-lg modal border border-gray-600">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400">Xác nhận Cường hóa</h3>
+				</div>
+				<div id="upgrade-confirm-content" class="p-4 sm:p-6"></div>
+				<div id="upgrade-confirm-buttons" class="p-4 bg-gray-900 rounded-b-lg flex justify-end space-x-4"></div>
+			</div>
+		</div>
+
+		<!-- Dungeon Confirmation Modal -->
+		<div id="dungeon-confirm-modal"
+			class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-[60]">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-lg modal border border-gray-600">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 id="dungeon-confirm-title" class="text-xl sm:text-2xl font-bold text-yellow-400">Xác Nhận Phiêu
+						Lưu</h3>
+				</div>
+				<div class="p-4 sm:p-6">
+					<div id="dungeon-confirm-summary" class="mb-4"></div>
+					<div class="flex items-center space-x-4">
+						<label for="dungeon-repeat-count" class="font-semibold">Số lần lặp:</label>
+						<select id="dungeon-repeat-count"
+							class="bg-gray-700 border border-gray-600 rounded-lg p-2 text-white">
+							<option value="1">1</option>
+							<option value="2">2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+							<option value="5">5</option>
+							<option value="6">6</option>
+							<option value="7">7</option>
+							<option value="8">8</option>
+							<option value="9">9</option>
+							<option value="10">10</option>
+						</select>
+					</div>
+				</div>
+				<div id="dungeon-confirm-buttons" class="p-4 bg-gray-900 rounded-b-lg flex justify-end space-x-4"></div>
+			</div>
+		</div>
+
+		<!-- Modal Thư Viện -->
+		<div id="gallery-modal"
+			class="hidden fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50"
+			onclick="closeGallery()">
+			<div class="bg-gray-900 rounded-xl p-6 w-11/12 max-w-6xl max-h-[90vh] overflow-y-auto relative border border-gray-700"
+				onclick="event.stopPropagation()">
+				<button onclick="closeGallery()"
+					class="absolute top-3 right-3 text-gray-400 hover:text-white text-2xl font-bold z-10">&times;</button>
+				<h2 class="text-2xl font-bold text-yellow-400 mb-6 text-center">Thư Viện</h2>
+
+				<!-- Tab Navigation -->
+				<div class="flex gap-4 mb-6 border-b border-gray-700">
+					<button onclick="switchGalleryTab('characters')" id="tab-characters"
+						class="px-4 py-2 font-semibold text-blue-300 border-b-2 border-blue-400 transition-colors">
+						Nhân vật
+					</button>
+					<button onclick="switchGalleryTab('equipment')" id="tab-equipment"
+						class="px-4 py-2 font-semibold text-gray-400 hover:text-green-300 transition-colors">
+						Trang bị
+					</button>
+				</div>
+
+				<!-- Nhân vật -->
+				<div id="gallery-characters-container" class="gallery-tab-content">
+					<div id="gallery-characters"></div>
+				</div>
+
+				<!-- Trang bị -->
+				<div id="gallery-equipment-container" class="gallery-tab-content hidden">
+					<div id="gallery-equipment"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- TOWER MODAL -->
+		<div id="tower-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50">
+			<div class="bg-gray-800 text-white p-6 rounded-2xl shadow-lg w-96 relative">
+
+				<!-- Tiêu đề -->
+				<h2 class="text-2xl font-bold text-center mb-4 text-yellow-400">TÒA THÁP</h2>
+
+				<!-- Tầng đã tới -->
+				<div class="text-center mb-4">
+					<p class="text-sm text-gray-300">Tầng hiện tại bạn đã tới:</p>
+					<p id="tower-current-floor" class="text-3xl font-bold text-green-400">1</p>
+				</div>
+
+				<!-- Khu vực chọn tầng -->
+				<div class="mb-4 text-center">
+					<label class="block text-sm text-gray-300 mb-2">Chọn tầng khiêu chiến:</label>
+					<div class="flex items-center justify-center space-x-3">
+						<button onclick="changeTowerFloor(-1)"
+							class="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-lg">−</button>
+						<span id="tower-selected-floor" class="text-2xl font-bold text-yellow-300">1</span>
+						<button onclick="changeTowerFloor(1)"
+							class="bg-gray-600 hover:bg-gray-700 px-3 py-1 rounded text-lg">+</button>
+					</div>
+				</div>
+
+				<!-- Số lần lặp -->
+				<div class="mb-5 text-center">
+					<label for="tower-repeat-count" class="block text-sm text-gray-300 mb-2">Số lần lặp:</label>
+					<select id="tower-repeat-count"
+						class="bg-gray-700 border border-gray-600 rounded-lg p-2 text-white w-28 mx-auto">
+						<option value="1">1</option>
+						<option value="2">2</option>
+						<option value="3">3</option>
+						<option value="4">4</option>
+						<option value="5">5</option>
+						<option value="6">6</option>
+						<option value="7">7</option>
+						<option value="8">8</option>
+						<option value="9">9</option>
+						<option value="10">10</option>
+					</select>
+				</div>
+
+				<!-- Chỉ số đối thủ -->
+				<div id="tower-enemy-stats" class="bg-gray-700 rounded-lg p-3 mb-4 text-sm">
+					<h3 id="tower-enemy-name" class="font-bold text-cyan-400 mb-2 text-center">Thủ hộ tầng 1</h3>
+					<p>HP: <span id="tower-enemy-hp">1</span></p>
+					<p>ATK: <span id="tower-enemy-atk">1</span></p>
+					<p>DEF: <span id="tower-enemy-def">1</span></p>
+					<p>SPD: <span id="tower-enemy-spd">1</span></p>
+					<p>LCK: <span id="tower-enemy-lck">1</span></p>
+				</div>
+
+				<!-- Nút hành động -->
+				<div class="flex justify-between">
+					<button onclick="hideModal('tower-modal')"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">
+						Đóng
+					</button>
+					<button onclick="startTowerBattle()"
+						class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+						Khiêu Chiến
+					</button>
+				</div>
+
+			</div>
+		</div>
+
+		<!-- Toast Notification -->
+		<div id="toast"
+			class="hidden fixed bottom-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg z-[80]"></div>
+
+	</div>
+
+	<script>
+		// --- GAME DATABASE ---
+		// --- Moved to data folder
+
+		// --- GAME STATE & CORE FUNCTIONS ---
+		let gameData = {};
+		let adventureInterval = null;
+		let adventureTimeout = null;
+		let stopAdventureFlag = false;
+		const SAVE_KEY = 'mangaNexusSaveData'; // Key for localStorage
+
+		const initialGameData = {
+			gold: 10,
+			soulFragment: 15,
+			ironBar: 15,
+			towerProgress: 1,
+			characters: { 'c001': { level: 0 } },
+			equipment: {},
+			equippedCharacterId: 'c001',
+			equippedEquipmentId: null,
+			unlockedDungeons: ['d01'],
+			quests: {},
+			lastQuestReset: new Date().toISOString().slice(0, 10),
+		};
+
+		let towerProgress = gameData.towerProgress || 1;
+		let selectedTowerFloor = towerProgress;
+
+		// ---UNCHANGED CORE & UI FUNCTIONS---
+		function showScreen(screenId) {
+			['login-screen', 'main-screen', 'dungeon-progress-screen'].forEach(id => document.getElementById(id).classList.add('hidden'));
+			if (document.getElementById(screenId)) document.getElementById(screenId).classList.remove('hidden');
+		}
+		function showModal(modalId) {
+			renderModalContent(modalId);
+			const modal = document.getElementById(modalId);
+			if (modal) modal.classList.remove('hidden');
+		}
+		function hideModal(modalId) {
+			const modal = document.getElementById(modalId);
+			if (modal) modal.classList.add('hidden');
+		}
+		function showToast(message, isSuccess = true) {
+			const toast = document.getElementById('toast');
+			toast.textContent = message;
+			toast.classList.remove('hidden', 'bg-green-500', 'bg-red-500');
+			toast.classList.add(isSuccess ? 'bg-green-500' : 'bg-red-500');
+			setTimeout(() => toast.classList.add('hidden'), 3000);
+		}
+		function getRarityClass(rarity) { return `star-${rarity}`; }
+		function getStars(rarity) { return '★'.repeat(rarity).padEnd(5, '☆'); }
+		function calculateFullStats(item, level) {
+			const fullStats = { ...item.baseStats };
+			if (item.potential) {
+				for (const stat in item.potential) {
+					if (fullStats[stat] === undefined) fullStats[stat] = 0;
+					fullStats[stat] += item.potential[stat] * level;
+				}
+			}
+			return fullStats;
+		}
+		function patchGameData(data) {
+			if (data.soulFragment === undefined) data.soulFragment = 15;
+			if (data.ironBar === undefined) data.ironBar = 15;
+			if (data.towerProgress === undefined) data.towerProgress = 1;
+			return data;
+		}
+
+		// ---UNCHANGED GAME LOGIC---
+		function startGame() {
+			gameData = JSON.parse(JSON.stringify(initialGameData));
+			updateUI();
+			updateEquippedCharacterImage("equipped-image");
+			showScreen('main-screen');
+		}
+
+		// --- UPDATED SAVE/LOAD ---
+		function saveGame(isManual = false) {
+			localStorage.setItem(SAVE_KEY, JSON.stringify(gameData));
+			if (isManual) showToast("Đã lưu game!", true);
+		}
+		function loadGame() {
+			const saved = localStorage.getItem(SAVE_KEY);
+			if (saved) {
+				try {
+					const parsed = JSON.parse(saved);
+					gameData = patchGameData(parsed);
+
+					updateUI();
+					updateEquippedCharacterImage("equipped-image");
+					showScreen('main-screen');
+					showToast("Đã tải game!", true);
+					return true;
+				} catch (e) {
+					console.error("Lỗi khi load file save:", e);
+					showToast("File save bị lỗi, không thể tải!", false);
+				}
+			}
+			return false;
+		}
+		function downloadGame() {
+			if (!gameData || Object.keys(gameData).length === 0) {
+				showToast("Không có dữ liệu để lưu!", false); return;
+			}
+			const dataStr = JSON.stringify(gameData, null, 2);
+			const blob = new Blob([dataStr], { type: "application/json" });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `MangaNexus_save_${new Date().toISOString().slice(0, 10)}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			showToast("Đã tải file save!");
+		}
+		function handleFileLoad(event) {
+			const file = event.target.files[0];
+			if (!file) return;
+			const reader = new FileReader();
+			reader.onload = function (e) {
+				try {
+					const loadedData = JSON.parse(e.target.result);
+					if (loadedData.gold !== undefined && loadedData.characters) {
+						gameData = patchGameData(loadedData);
+						updateUI();
+						updateEquippedCharacterImage("equipped-image");
+						showScreen('main-screen');
+						showToast("Đã tải game thành công!");
+					} else {
+						showToast("File save không hợp lệ!", false);
+					}
+				} catch (error) {
+					showToast("Lỗi khi đọc file save!", false);
+				}
+			};
+			reader.readAsText(file);
+			event.target.value = null;
+		}
+
+		// --- ADD GALLERY FUNCTIONS ---
+		function showGallery() {
+			renderGallerySection('character');
+			renderGallerySection('equipment');
+			showModal('gallery-modal');
+			switchGalleryTab('characters'); // Mặc định hiển thị tab nhân vật
+		}
+		function closeGallery() {
+			hideModal('gallery-modal');
+		}
+		function switchGalleryTab(tab) {
+			// Ẩn tất cả tab content
+			document.querySelectorAll('.gallery-tab-content').forEach(el => el.classList.add('hidden'));
+
+			// Hiện tab được chọn
+			document.getElementById(`gallery-${tab}-container`).classList.remove('hidden');
+
+			// Cập nhật style cho buttons
+			const charBtn = document.getElementById('tab-characters');
+			const equipBtn = document.getElementById('tab-equipment');
+
+			if (tab === 'characters') {
+				charBtn.className = 'px-4 py-2 font-semibold text-blue-300 border-b-2 border-blue-400 transition-colors';
+				equipBtn.className = 'px-4 py-2 font-semibold text-gray-400 hover:text-green-300 transition-colors';
+			} else {
+				charBtn.className = 'px-4 py-2 font-semibold text-gray-400 hover:text-blue-300 transition-colors';
+				equipBtn.className = 'px-4 py-2 font-semibold text-green-300 border-b-2 border-green-400 transition-colors';
+			}
+		}
+		function renderGallerySection(type) {
+			const db = type === 'character' ? CHARACTERS_DB : EQUIPMENT_DB;
+			const owned = type === 'character' ? gameData.characters : gameData.equipment;
+			const container = document.getElementById(`gallery-${type === 'character' ? 'characters' : 'equipment'}`);
+
+			// Wiki links cho mỗi dungeon
+			const wikiLinks = {
+				'd01': 'https://doraemon.fandom.com/wiki/Doraemon_Wiki',
+				'd02': 'https://crayonshinchan.fandom.com/wiki/Crayon_Shin-chan_Wiki',
+				'd03': 'https://www.detectiveconanworld.com/wiki/Main_Page',
+				'd04': 'https://reborn.fandom.com/wiki/Reborn_Wiki',
+				'd05': 'https://myheroacademia.fandom.com/wiki/My_Hero_Academia_Wiki',
+				'd06': 'https://fairytail.fandom.com/wiki/Fairy_Tail_Wiki',
+				'd07': 'https://magi.fandom.com/wiki/Magi_Wiki',
+				'd08': 'https://chainsaw-man.fandom.com/wiki/Chainsaw_Man_Wiki',
+				'd09': 'https://naruto.fandom.com/wiki/Narutopedia',
+				'd10': 'https://onepiece.fandom.com/wiki/One_Piece_Wiki',
+				'd11': 'https://dragonball.fandom.com/wiki/Dragon_Ball_Wiki',
+				'd12': 'https://bleach.fandom.com/wiki/Bleach_Wiki',
+				'd13': 'https://hunterxhunter.fandom.com/wiki/Hunterpedia',
+				'd14': 'https://jujutsu-kaisen.fandom.com/wiki/Jujutsu_Kaisen_Wiki',
+				'd15': 'https://demonslayer.fandom.com/wiki/Kimetsu_no_Yaiba_Wiki'
+			};
+
+			// Nhóm items theo dungeon
+			const itemsByDungeon = {};
+
+			// Duyệt qua tất cả dungeons để tìm items thuộc dungeon nào
+			Object.keys(DUNGEONS_DB).forEach(dungeonId => {
+				const dungeon = DUNGEONS_DB[dungeonId];
+				const rewardKey = type === 'character' ? 'char' : 'equip';
+
+				if (dungeon.rewards && dungeon.rewards.win && dungeon.rewards.win[rewardKey]) {
+					dungeon.rewards.win[rewardKey].forEach(itemId => {
+						if (!itemsByDungeon[dungeonId]) {
+							itemsByDungeon[dungeonId] = {
+								name: dungeon.name,
+								rarity: dungeon.rarity,
+								items: []
+							};
+						}
+						if (db[itemId]) {
+							itemsByDungeon[dungeonId].items.push({
+								id: itemId,
+								...db[itemId],
+								isOwned: !!owned[itemId]
+							});
+						}
+					});
+				}
+			});
+
+			// Sắp xếp theo rarity
+			const sortedDungeons = Object.entries(itemsByDungeon).sort((a, b) => a[1].rarity - b[1].rarity);
+
+			// Render theo nhóm dungeon
+			container.innerHTML = sortedDungeons.map(([dungeonId, dungeonData]) => {
+				const rarityColor = getRarityClass(dungeonData.rarity);
+				const wikiLink = wikiLinks[dungeonId] || '#';
+				const stars = getStars(dungeonData.rarity);
+
+				// Đếm số items đã có
+				const ownedCount = dungeonData.items.filter(item => item.isOwned).length;
+				const totalCount = dungeonData.items.length;
+				const progressPercent = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
+
+			const itemsHTML = dungeonData.items.map(item => {
+				const imgSrc = type === 'character'
+					? `./images/chars/${item.id}.png`
+					: `./images/items/${item.id}.png`;
+				const fallback = type === 'character'
+					? './images/chars/missingChar.png'
+					: './images/items/missingEquip.png';
+				const colorClass = getRarityColor(item.rarity);					return `
+				<div class="flex flex-col items-center p-2 rounded-lg bg-gray-800 shadow-md hover:scale-105 transition-transform duration-300 ${item.isOwned ? '' : 'opacity-40'}">
+				  <img 
+					src="${imgSrc}" 
+					onerror="this.src='${fallback}'"
+					alt="${item.name}" 
+					class="w-20 h-20 object-cover rounded-md border ${item.isOwned ? 'border-yellow-400' : 'border-gray-600'} cursor-pointer"
+					${item.isOwned ? `onclick="showItemDetail('${type}', '${item.id}')"` : ''}
+				  >
+				  <p class="text-sm font-semibold mt-2 ${colorClass} text-center">${item.name}</p>
+				</div>
+			  `;
+				}).join('');
+
+				return `
+			  <div class="mb-6 pb-4 border-b border-gray-700">
+				<div class="flex items-center justify-between mb-3">
+				  <div class="flex items-center gap-3">
+					<h4 class="text-lg font-bold ${rarityColor}">${dungeonData.name}</h4>
+					<span class="text-sm text-yellow-400">${stars}</span>
+					<a href="${wikiLink}" target="_blank" rel="noopener noreferrer" 
+					   class="text-xs text-blue-400 hover:text-blue-300 underline flex items-center gap-1">
+					  📖 Wiki
+					</a>
+				  </div>
+				  <div class="text-right">
+					<p class="text-xs text-gray-400">Sưu tập: <span class="font-bold ${ownedCount === totalCount ? 'text-green-400' : 'text-yellow-400'}">${ownedCount}/${totalCount}</span></p>
+					<div class="w-32 h-2 bg-gray-700 rounded-full mt-1 overflow-hidden">
+					  <div class="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300" style="width: ${progressPercent}%"></div>
+					</div>
+				  </div>
+				</div>
+				<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+				  ${itemsHTML}
+				</div>
+			  </div>
+			`;
+			}).join('');
+		}
+		function getRandomInt(min, max) {
+			return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+
+		// Hàm đếm số nhân vật/trang bị chưa có trong dungeon
+		function countMissingItems(dungeonId) {
+			const dungeon = DUNGEONS_DB[dungeonId];
+			let missingChars = 0;
+			let missingEquips = 0;
+
+			// Đếm nhân vật chưa có
+			if (dungeon.rewards && dungeon.rewards.win && dungeon.rewards.win.char) {
+				dungeon.rewards.win.char.forEach(charId => {
+					if (!gameData.characters[charId]) {
+						missingChars++;
+					}
+				});
+			}
+
+			// Đếm trang bị chưa có
+			if (dungeon.rewards && dungeon.rewards.win && dungeon.rewards.win.equip) {
+				dungeon.rewards.win.equip.forEach(equipId => {
+					if (!gameData.equipment[equipId]) {
+						missingEquips++;
+					}
+				});
+			}
+
+			return { missingChars, missingEquips };
+		}
+
+		// ---TOWER FUNCTIONS---
+		// --- HIỂN THỊ MODAL ---
+		function showTowerModal() {
+			selectedTowerFloor = gameData.towerProgress;
+			console.log("towerProgress:", gameData.towerProgress);
+			console.log("selectedTowerFloor:", selectedTowerFloor);
+			updateTowerModalUI();
+			showModal('tower-modal');
+		}
+		// --- ĐỔI TẦNG ---
+		function changeTowerFloor(delta) {
+			const maxFloor = gameData.towerProgress;
+			selectedTowerFloor = Math.max(1, Math.min(maxFloor, selectedTowerFloor + delta));
+			updateTowerModalUI();
+		}
+		// --- CẬP NHẬT UI ---
+		function updateTowerModalUI() {
+			document.getElementById('tower-current-floor').textContent = gameData.towerProgress;
+			document.getElementById('tower-selected-floor').textContent = selectedTowerFloor;
+
+			const enemyId = `tower_en${selectedTowerFloor.toString().padStart(3, '0')}`;
+			const enemy = TOWER_ENEMIES[enemyId];
+
+			if (enemy) {
+				document.getElementById('tower-enemy-name').textContent = enemy.name;
+				document.getElementById('tower-enemy-hp').textContent = enemy.stats.hp;
+				document.getElementById('tower-enemy-atk').textContent = enemy.stats.atk;
+				document.getElementById('tower-enemy-def').textContent = enemy.stats.def;
+				document.getElementById('tower-enemy-spd').textContent = enemy.stats.spd;
+				document.getElementById('tower-enemy-lck').textContent = enemy.stats.lck;
+			} else {
+				document.getElementById('tower-enemy-name').textContent = `Chưa có dữ liệu tầng ${selectedTowerFloor}`;
+				document.querySelectorAll('#tower-enemy-stats span').forEach(span => span.textContent = '-');
+			}
+		}
+
+		function updateTowerModal(selectedFloor = null) {
+			const totalFloors = Object.keys(TOWER_ENEMIES).length;
+
+			// Nếu chưa chọn tầng, mặc định là tầng hiện tại người chơi đang đạt
+			if (selectedFloor === null) {
+				selectedFloor = gameData.towerProgress;
+			}
+
+			// Giới hạn tầng
+			if (selectedFloor < 1) selectedFloor = 1;
+			if (selectedFloor > totalFloors) selectedFloor = totalFloors;
+
+			const towerKey = `tower_en${selectedFloor.toString().padStart(3, '0')}`;
+			const enemy = TOWER_ENEMIES[towerKey];
+			const reward = TOWER_REWARDS[towerKey];
+
+			// --- Gán dữ liệu cơ bản ---
+			document.getElementById('tower-selected-floor').textContent = selectedFloor;
+			document.getElementById('tower-enemy-name').textContent = enemy.name;
+
+			document.getElementById('tower-enemy-stats').innerHTML = `
+				<p>HP: ${enemy.stats.hp}</p>
+				<p>ATK: ${enemy.stats.atk}</p>
+				<p>DEF: ${enemy.stats.def}</p>
+				<p>SPD: ${enemy.stats.spd}</p>
+				<p>LCK: ${enemy.stats.lck}</p>
+			`;
+
+
+			// --- Cập nhật nút chuyển tầng ---
+			const prevButton = document.getElementById('tower-prev-floor');
+			const nextButton = document.getElementById('tower-next-floor');
+
+			prevButton.disabled = selectedFloor <= 1;
+			nextButton.disabled = selectedFloor >= totalFloors;
+
+			// --- Trạng thái khóa / mở ---
+			const challengeButton = document.getElementById('tower-challenge-button');
+			const statusText = document.getElementById('tower-floor-status');
+
+			if (selectedFloor <= gameData.towerProgress) {
+				statusText.textContent = "Tầng có thể khiêu chiến";
+				statusText.className = "text-green-400 font-bold";
+				challengeButton.disabled = false;
+			} else {
+				statusText.textContent = "Tầng chưa mở khóa";
+				statusText.className = "text-gray-400 font-bold";
+				challengeButton.disabled = true;
+			}
+
+			// --- Gán lại sự kiện cho nút điều hướng ---
+			prevButton.onclick = () => updateTowerModal(selectedFloor - 1);
+			nextButton.onclick = () => updateTowerModal(selectedFloor + 1);
+		}
+
+		// --Giả lập chiến đấu
+		function runTowerSimulation(floorNumber) {
+			const playerStats = getTotalStats();
+			const playerCharDB = CHARACTERS_DB[gameData.equippedCharacterId];
+			const enemyKey = `tower_en${String(floorNumber).padStart(3, '0')}`;
+			const enemy = TOWER_ENEMIES[enemyKey];
+			const enemyNameDisplay = enemy.name;
+			const enemySkillName = enemy.skills[0].name;
+			const characterNameDisplay = playerCharDB.name;
+
+			let towerLog = [];
+			let rewards = { gold: 0, items: [], soulFragment: 0, ironBar: 0 };
+			let playerWon = true;
+
+			// --- Ghi log mở đầu ---
+			towerLog.push(`<hr class="my-2 border-gray-600"><p class="font-bold text-cyan-400">Bạn bắt đầu khiêu chiến <span class="text-yellow-300">${enemyNameDisplay}</span>!</p>`);
+
+			// --- Chạy mô phỏng chiến đấu ---
+			const combatResult = runCombat(
+				playerStats,
+				playerCharDB.skills,
+				JSON.parse(JSON.stringify(enemy.stats)),
+				enemyNameDisplay,
+				enemySkillName,
+				characterNameDisplay
+			);
+
+			towerLog = towerLog.concat(combatResult.log);
+
+			if (!combatResult.playerWon) {
+				playerWon = false;
+				towerLog.push(`<p class="font-bold text-red-500">Bạn đã bị đánh bại ở tầng ${floorNumber}!</p>`);
+			} else {
+				towerLog.push(`<p class="font-bold text-green-400">Chiến thắng tầng ${floorNumber}!</p>`);
+			}
+
+			// --- Phần thưởng ---
+			towerLog.push(`<hr class="my-2 border-gray-600"><p class="font-bold text-yellow-400">Kết quả khiêu chiến:</p>`);
+
+			if (playerWon) {
+				const rewardRow = TOWER_REWARDS.find(r => floorNumber >= r.range[0] && floorNumber <= r.range[1]);
+				if (rewardRow) {
+					// GOLD
+					if (Math.random() < rewardRow.goldRate) {
+						rewards.gold += rewardRow.gold;
+						towerLog.push(`<p>+${rewardRow.gold} <span class="text-yellow-300 font-bold">Vàng</span></p>`);
+					}
+
+					// SOUL FRAGMENT
+					if (Math.random() < rewardRow.soulRate) {
+						const soulAmount = getRandomInt(rewardRow.soulMin, rewardRow.soulMax);
+						rewards.soulFragment += soulAmount;
+						towerLog.push(`<p>+${soulAmount} <span class="text-blue-300 font-bold">Mảnh Linh Hồn</span></p>`);
+					}
+
+					// IRON BAR
+					if (Math.random() < rewardRow.ironRate) {
+						const ironAmount = getRandomInt(rewardRow.ironMin, rewardRow.ironMax);
+						rewards.ironBar += ironAmount;
+						towerLog.push(`<p>+${ironAmount} <span class="text-gray-300 font-bold">Thỏi Sắt</span></p>`);
+					}
+				}
+			} else {
+				towerLog.push(`<p class="text-gray-400 italic">Bạn không nhận được phần thưởng nào.</p>`);
+			}
+
+			return { log: towerLog, rewards: rewards, playerWon };
+		}
+
+		// --- KHIÊU CHIẾN ---
+		async function startTowerBattle() {
+			if (!gameData.equippedCharacterId) {
+				showToast("Vui lòng chọn nhân vật!", false);
+				return;
+			}
+
+			// --- Lấy tầng được chọn ---
+			const selectedFloor = parseInt(document.getElementById('tower-selected-floor').textContent);
+			const repeatCount = parseInt(document.getElementById('tower-repeat-count').value);
+
+			hideModal('tower-modal');
+			stopAdventureFlag = false;
+
+		// --- Chuẩn bị giao diện ---
+		const enemyKey = `tower_en${String(selectedFloor).padStart(3, '0')}`;
+		const enemyData = TOWER_ENEMIES[enemyKey];
+		document.getElementById('dungeon-progress-title').textContent = `Tòa Tháp - Tầng ${selectedFloor}`;
+		document.getElementById('enemy-name-display').textContent = enemyData.name;
+		const logContainer = document.getElementById('dungeon-log-container');
+		logContainer.innerHTML = '';
+		logContainer.classList.remove('hidden');			document.getElementById('stop-adventure-button').classList.remove('hidden');
+			document.getElementById('adventure-confirm-button').classList.add('hidden');
+			document.getElementById('dungeon-timer').classList.add('hidden');
+			document.getElementById('dungeon-repeat-total').textContent = repeatCount;
+
+			showScreen('dungeon-progress-screen');
+			updateEquippedCharacterImage("equipped-image-progress");
+
+			let battleHistories = []; // Lưu lịch sử chi tiết từng lần
+			let totalRewards = { gold: 0, soulFragment: 0, ironBar: 0 };
+			let playerWonLast = false;
+
+			// --- Bắt đầu vòng lặp ---
+			for (let i = 1; i <= repeatCount && !stopAdventureFlag; i++) {
+				document.getElementById('dungeon-repeat-current').textContent = i;
+
+				// Hiển thị header đang tiến hành
+				const headerHTML = `
+					<h3 class="text-xl font-bold text-yellow-300 my-4 p-2 bg-gray-700 rounded text-center cursor-pointer hover:bg-gray-600 transition-colors" 
+						onclick="toggleBattleDetail(${i - 1})">
+						--- Khiêu chiến ${i} / ${repeatCount} --- <span class="text-sm text-gray-400">(đang xử lý...)</span>
+					</h3>
+				`;
+				logContainer.innerHTML += headerHTML;
+				logContainer.scrollTop = logContainer.scrollHeight;
+
+				const result = runTowerSimulation(selectedFloor);
+
+				// Lưu lịch sử battle này
+				battleHistories.push({
+					index: i,
+					log: result.log,
+					rewards: result.rewards,
+					playerWon: result.playerWon
+				});
+
+				// Ghi từng dòng log với delay
+				const detailContainer = document.createElement('div');
+				detailContainer.id = `battle-detail-${i - 1}`;
+				detailContainer.className = 'battle-detail';
+				logContainer.appendChild(detailContainer);
+
+				for (const line of result.log) {
+					const logLine = document.createElement('div');
+					logLine.innerHTML = line;
+					logLine.classList.add('log-line');
+					detailContainer.appendChild(logLine);
+					logContainer.scrollTop = logContainer.scrollHeight;
+					await new Promise(r => setTimeout(r, 750));
+					if (stopAdventureFlag) break;
+				}
+
+				// Hiển thị phần thưởng của lần này
+				const rewardHTML = `
+					<div class="my-2 p-2 bg-gray-800 rounded">
+						<p class="font-bold text-blue-300">Phần thưởng lần ${i}:</p>
+						<p>+${result.rewards.gold} <span class="text-yellow-300">vàng</span></p>
+						<p>+${result.rewards.soulFragment} <span class="text-blue-300">Mảnh Linh Hồn</span></p>
+						<p>+${result.rewards.ironBar} <span class="text-gray-300">Thỏi Sắt</span></p>
+					</div>
+				`;
+				detailContainer.insertAdjacentHTML('beforeend', rewardHTML);
+
+				// Cộng phần thưởng
+				totalRewards.gold += result.rewards.gold;
+				totalRewards.soulFragment += result.rewards.soulFragment;
+				totalRewards.ironBar += result.rewards.ironBar;
+
+				playerWonLast = result.playerWon;
+
+				// Cập nhật header đã hoàn thành
+				const headers = logContainer.querySelectorAll('h3');
+				if (headers[i - 1]) {
+					headers[i - 1].innerHTML = `--- Khiêu chiến ${i} / ${repeatCount} --- <span class="text-sm text-green-400">(hoàn thành ✓)</span> <span class="text-xs text-gray-400">[Click để xem/ẩn]</span>`;
+				}
+
+				if (stopAdventureFlag) break;
+			}
+
+			// --- Xử lý kết quả cuối ---
+			if (!stopAdventureFlag) {
+				// Cộng thưởng vào gameData
+				gameData.gold += totalRewards.gold;
+				gameData.soulFragment += totalRewards.soulFragment;
+				gameData.ironBar += totalRewards.ironBar;
+
+				// Cập nhật tiến trình tầng nếu thắng
+				if (playerWonLast && selectedFloor >= gameData.towerProgress) {
+					gameData.towerProgress = selectedFloor + 1;
+					showToast(`Bạn đã mở khóa tầng ${gameData.towerProgress}!`, true);
+				}
+
+				// Hiện tổng kết
+				const summaryHTML = `
+					<hr class="my-4 border-gray-600">
+					<div class="bg-gradient-to-r from-yellow-900 to-yellow-800 p-4 rounded-lg my-4">
+						<p class="text-2xl font-bold text-yellow-300 mb-3 text-center">🏆 Tổng Kết Phần Thưởng 🏆</p>
+						<p class="text-lg">Tổng số lần: <span class="font-bold text-white">${repeatCount}</span></p>
+						<p class="text-lg">+${totalRewards.gold} <span class="font-bold text-yellow-300">vàng</span></p>
+						<p class="text-lg">+${totalRewards.soulFragment} <span class="font-bold text-blue-300">Mảnh Linh Hồn</span></p>
+						<p class="text-lg">+${totalRewards.ironBar} <span class="font-bold text-gray-300">Thỏi Sắt</span></p>
+					</div>
+				`;
+				logContainer.insertAdjacentHTML('beforeend', summaryHTML);
+				logContainer.scrollTop = logContainer.scrollHeight;
+
+				document.getElementById('stop-adventure-button').classList.add('hidden');
+				document.getElementById('adventure-confirm-button').classList.remove('hidden');
+			} else {
+				showScreen('main-screen');
+			}
+
+			updateUI();
+			saveGame();
+		}
+
+		// Hàm toggle hiển thị chi tiết battle
+		function toggleBattleDetail(index) {
+			const detail = document.getElementById(`battle-detail-${index}`);
+			if (detail) {
+				if (detail.style.display === 'none') {
+					detail.style.display = 'block';
+				} else {
+					detail.style.display = 'none';
+				}
+			}
+		}
+		// ---------------------
+
+		function getRarityColor(rarity) {
+			switch (rarity) {
+				case 1: return 'text-white';
+				case 2: return 'text-green-400';
+				case 3: return 'text-blue-400';
+				case 4: return 'text-purple-400';
+				case 5: return 'text-red-400';
+				default: return 'text-gray-300';
+			}
+		}
+
+		function equipItem(type, id) {
+			if (type === 'character') {
+				gameData.equippedCharacterId = id;
+				updateEquippedCharacterImage("equipped-image"); // 🔹 Cập nhật ảnh nhân vật mới
+			}
+			else if (type === 'equipment') gameData.equippedEquipmentId = id;
+			hideModal(type === 'character' ? 'characters-modal' : 'equipment-modal');
+			updateUI();
+			saveGame();
+		}
+
+		// --get character image
+		function updateEquippedCharacterImage(targetId, charId) {
+			const img = document.getElementById(targetId);
+			if (!img) return;
+
+			const characterId = charId || (gameData && gameData.equippedCharacterId) || "c001";
+			const srcPath = `./images/chars/${characterId}.png`;
+			const fallback = "./images/chars/missingChar.png";
+
+			img.onerror = () => {
+				img.onerror = null;
+				img.src = fallback;
+			};
+			img.src = srcPath;
+			img.alt = `Character ${characterId}`;
+		}
+		function showUpgradeConfirmation(type, id) {
+			const itemData = type === 'character' ? gameData.characters[id] : gameData.equipment[id];
+			const itemDB = type === 'character' ? CHARACTERS_DB[id] : EQUIPMENT_DB[id];
+
+			// --- Xác định loại tài nguyên và chi phí ---
+			const baseCost = itemDB.rarity; // 1 → 5
+			const incrementPerLevel = itemDB.rarity; // Tăng dần theo sao
+			const cost = baseCost + (itemData.level * incrementPerLevel);
+
+			const resourceName = type === 'character' ? 'soulFragment' : 'ironBar';
+			const resourceDisplay = type === 'character' ? 'Mảnh Linh Hồn' : 'Thỏi Sắt';
+			const resourceAmount = gameData[resourceName] || 0;
+
+			// --- Kiểm tra đủ tài nguyên không ---
+			if (resourceAmount < cost) {
+				showToast(`Không đủ ${resourceDisplay}!`, false);
+				return;
+			}
+
+			// --- Tính chỉ số trước và sau ---
+			const statsBefore = calculateFullStats(itemDB, itemData.level);
+			const statsAfter = calculateFullStats(itemDB, itemData.level + 1);
+
+			// --- Hiển thị nội dung hộp thoại ---
+			let content = `<h4 class="text-lg font-bold mb-4 ${getRarityClass(itemDB.rarity)}">${itemDB.name} +${itemData.level} → +${itemData.level + 1}</h4>`;
+			content += `<p class="mb-4">Chi phí: <span class="font-bold text-yellow-400">${cost} ${resourceDisplay}</span></p>`;
+			content += `<div class="grid grid-cols-2 gap-4"><div><h5 class="font-bold mb-2">Chỉ số hiện tại</h5>`;
+
+			for (const stat in statsBefore)
+				content += `<p><span class="capitalize font-semibold">${stat}:</span> ${statsBefore[stat]}</p>`;
+
+			content += `</div><div><h5 class="font-bold mb-2 text-green-400">Chỉ số sau C.Hóa</h5>`;
+
+			for (const stat in statsAfter) {
+				const change = statsAfter[stat] - statsBefore[stat];
+				content += `<p><span class="capitalize font-semibold">${stat}:</span> ${statsAfter[stat]} ${change > 0 ? `<span class="text-green-400">(+${change})</span>` : ''}</p>`;
+			}
+
+			content += `</div></div>`;
+			document.getElementById('upgrade-confirm-content').innerHTML = content;
+
+			// --- Nút xác nhận và hủy ---
+			document.getElementById('upgrade-confirm-buttons').innerHTML = `
+				<button onclick="hideModal('upgrade-confirm-modal')" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Hủy</button>
+				<button onclick="executeUpgrade('${type}', '${id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Xác nhận</button>
+			`;
+
+			showModal('upgrade-confirm-modal');
+		}
+		function executeUpgrade(type, id) {
+			const itemData = type === 'character' ? gameData.characters[id] : gameData.equipment[id];
+			const itemDB = type === 'character' ? CHARACTERS_DB[id] : EQUIPMENT_DB[id];
+
+			if (itemData.level >= 9) {
+				showToast("Đã đạt cấp tối đa!", false);
+				return;
+			}
+
+			// --- Xác định loại tài nguyên và chi phí ---
+			const baseCost = itemDB.rarity;
+			const incrementPerLevel = itemDB.rarity;
+			const cost = baseCost + (itemData.level * incrementPerLevel);
+
+			const resourceName = type === 'character' ? 'soulFragment' : 'ironBar';
+			const resourceDisplay = type === 'character' ? 'Mảnh Linh Hồn' : 'Thỏi Sắt';
+			const resourceAmount = gameData[resourceName] || 0;
+
+			// --- Kiểm tra đủ tài nguyên ---
+			if (resourceAmount < cost) {
+				showToast(`Không đủ ${resourceDisplay}!`, false);
+				return;
+			}
+
+			// --- Tiêu hao tài nguyên và nâng cấp ---
+			gameData[resourceName] -= cost;
+			itemData.level++;
+
+			showToast(`${itemDB.name} đã được cường hóa lên +${itemData.level}!`);
+
+			hideModal('upgrade-confirm-modal');
+			updateUI();
+			renderModalContent(type === 'character' ? 'characters-modal' : 'equipment-modal');
+			if (!document.getElementById('item-detail-modal').classList.contains('hidden'))
+				showItemDetail(type, id);
+
+			saveGame();
+		}
+		function showItemDetail(type, id) {
+			const itemDB = type === 'character' ? CHARACTERS_DB[id] : EQUIPMENT_DB[id];
+			const itemData = type === 'character' ? gameData.characters[id] : gameData.equipment[id];
+			const fullStats = calculateFullStats(itemDB, itemData.level);
+
+			let content = '';
+			if (type === 'character') {
+				const imgSrc = `./images/chars/${id}.png`;
+				content += `
+					<div class="flex justify-center mb-4">
+						<img src="${imgSrc}" 
+							 onerror="this.src='./images/chars/missingChar.png'" 
+							 alt="${itemDB.name}" 
+							 class="rounded-lg w-32 h-32 object-cover border-2 border-gray-600 shadow-lg">
+					</div>
+				`;
+			}
+			content += `<h4 class="text-xl sm:text-2xl font-bold mb-4 ${getRarityClass(itemDB.rarity)}">
+				${itemDB.name} +${itemData.level} 
+				<span class="text-yellow-400">${getStars(itemDB.rarity)}</span>
+			</h4>`;
+
+			if (itemDB.desc) content += `<p class="italic text-gray-400 mb-4">${itemDB.desc}</p>`;
+			content += '<h5 class="font-bold text-lg mb-2 text-cyan-400">Chỉ số:</h5><div class="grid grid-cols-2 gap-2 mb-4">';
+			for (const stat in fullStats) {
+				const potentialGrowth = itemDB.potential[stat] ? `(+${itemDB.potential[stat] * itemData.level})` : '';
+				content += `<div><span class="font-semibold capitalize">${stat}:</span> ${fullStats[stat]} <span class="text-sm text-green-400">${potentialGrowth}</span></div>`;
+			}
+			content += '</div>';
+			if (type === 'character') {
+				content += '<h5 class="font-bold text-lg mb-2 text-cyan-400">Kỹ Năng:</h5>';
+				itemDB.skills.forEach(skill => {
+					content += `<div class="mb-2 p-2 bg-gray-700 rounded"><p class="font-semibold">${skill.name} ${skill.chance > 0 ? `(${skill.chance}%)` : '(Đánh thường)'}</p><p class="text-sm text-gray-300">${skill.desc}</p></div>`;
+				});
+			}
+			document.getElementById('item-detail-content').innerHTML = content;
+			showModal('item-detail-modal');
+		}
+		function unlockDungeon(dungeonId) {
+			const dungeon = DUNGEONS_DB[dungeonId];
+			if (gameData.gold >= dungeon.unlockCost) {
+				gameData.gold -= dungeon.unlockCost;
+				gameData.unlockedDungeons.push(dungeonId);
+				showToast(`Đã mở khóa dungeon ${dungeon.name}!`);
+				updateUI();
+				renderModalContent('dungeons-modal');
+				saveGame();
+			} else { showToast("Không đủ vàng!", false); }
+		}
+		function confirmAdventure(dungeonId) {
+			const dungeon = DUNGEONS_DB[dungeonId];
+			document.getElementById('dungeon-confirm-title').textContent = `Xác Nhận: ${dungeon.name}`;
+			const playerStats = getTotalStats();
+			let summary = `<p class="font-bold text-lg mb-2">Đội hình:</p><p>${CHARACTERS_DB[gameData.equippedCharacterId].name} +${gameData.characters[gameData.equippedCharacterId].level}</p>`;
+			if (gameData.equippedEquipmentId) summary += `<p>${EQUIPMENT_DB[gameData.equippedEquipmentId].name} +${gameData.equipment[gameData.equippedEquipmentId].level}</p>`;
+			summary += `<p class="font-bold text-lg mt-4 mb-2">Chỉ số:</p><div class="grid grid-cols-2 gap-1 text-sm"><span>HP: ${playerStats.hp}</span><span>ATK: ${playerStats.atk}</span><span>DEF: ${playerStats.def}</span><span>SPD: ${playerStats.spd}</span><span>LCK: ${playerStats.lck}</span></div>`;
+			document.getElementById('dungeon-confirm-summary').innerHTML = summary;
+			document.getElementById('dungeon-confirm-buttons').innerHTML = `<button onclick="hideModal('dungeon-confirm-modal')" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Hủy</button><button onclick="startAdventure('${dungeonId}')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Xác Nhận</button>`;
+			showModal('dungeon-confirm-modal');
+		}
+
+		// ---UNCHANGED ADVENTURE LOGIC---
+		async function startAdventure(dungeonId) {
+			if (!gameData.equippedCharacterId) {
+				showToast("Vui lòng chọn nhân vật!", false);
+				return;
+			}
+
+			const dungeon = DUNGEONS_DB[dungeonId];
+			const cost = getDungeonCost(dungeon.rarity);
+			if (gameData.gold < cost) {
+				showToast("Không đủ vàng để vào dungeon này!", false);
+				return;
+			}
+			gameData.gold -= cost;
+
+			hideModal('dungeon-confirm-modal');
+			hideModal('dungeons-modal');
+			stopAdventureFlag = false;
+
+		const repeatCount = parseInt(document.getElementById('dungeon-repeat-count').value);
+
+		document.getElementById('dungeon-progress-title').textContent = `Phiêu lưu: ${dungeon.name}`;
+		document.getElementById('enemy-name-display').textContent = dungeon.boss ? ENEMIES_DB[dungeon.boss].name : 'Đối thủ';
+		const logContainer = document.getElementById('dungeon-log-container');
+		logContainer.innerHTML = '';
+		logContainer.classList.remove('hidden');			document.getElementById('stop-adventure-button').classList.remove('hidden');
+			document.getElementById('adventure-confirm-button').classList.add('hidden');
+			document.getElementById('dungeon-timer').classList.add('hidden');
+
+			document.getElementById('dungeon-repeat-total').textContent = repeatCount;
+			showScreen('dungeon-progress-screen');
+			console.log("equippedCharacterId:", gameData.equippedCharacterId);
+			updateEquippedCharacterImage("equipped-image-progress");
+
+			let adventureHistories = []; // Lưu lịch sử chi tiết từng lần
+			let totalRewards = { gold: 0, items: [] };
+
+			// --- Bắt đầu vòng lặp phiêu lưu ---
+			for (let i = 1; i <= repeatCount && !stopAdventureFlag; i++) {
+				document.getElementById('dungeon-repeat-current').textContent = i;
+
+				// Hiển thị header đang tiến hành
+				const headerHTML = `
+					<h3 class="text-xl font-bold text-yellow-300 my-4 p-2 bg-gray-700 rounded text-center cursor-pointer hover:bg-gray-600 transition-colors" 
+						onclick="toggleAdventureDetail(${i - 1})">
+						--- Lượt ${i} / ${repeatCount} --- <span class="text-sm text-gray-400">(đang xử lý...)</span>
+					</h3>
+				`;
+				logContainer.innerHTML += headerHTML;
+				logContainer.scrollTop = logContainer.scrollHeight;
+
+				const simulationResult = runAdventureSimulation(dungeonId);
+
+				// Lưu lịch sử phiêu lưu này
+				adventureHistories.push({
+					index: i,
+					log: simulationResult.log,
+					rewards: simulationResult.rewards
+				});
+
+				// Hiển thị chi tiết trong container
+				const detailContainer = document.createElement('div');
+				detailContainer.id = `adventure-detail-${i - 1}`;
+				detailContainer.className = 'adventure-detail';
+				logContainer.appendChild(detailContainer);
+
+			// Hiện từng dòng log với delay
+			let currentEventIndex = 0;
+			for (const line of simulationResult.log) {
+				const logLine = document.createElement('div');
+				logLine.innerHTML = line;
+				logLine.classList.add('log-line');
+				detailContainer.appendChild(logLine);
+				logContainer.scrollTop = logContainer.scrollHeight;
+
+				// Cập nhật tên enemy khi bắt đầu sự kiện mới
+				if (line.includes('Sự kiện') && line.includes('Gặp') && simulationResult.enemyEncounters) {
+					document.getElementById('enemy-name-display').textContent = simulationResult.enemyEncounters[currentEventIndex] || 'Đối thủ';
+					currentEventIndex++;
+				}
+
+				await new Promise(r => setTimeout(r, 750));
+				if (stopAdventureFlag) break;
+			}
+
+				// Ẩn detail sau khi hiển thị xong
+				detailContainer.style.display = 'none';
+
+				// Hiển thị phần thưởng của lần này
+				const itemsHTML = simulationResult.rewards.items.map(item => {
+					const itemDB = item.type === 'character' ? CHARACTERS_DB[item.id] : EQUIPMENT_DB[item.id];
+					const isNew = item.type === 'character' ? !gameData.characters[item.id] : !gameData.equipment[item.id];
+					const newBadge = isNew ? '<span class="ml-2 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded animate-pulse">NEW!</span>' : '';
+					return `<p>• ${itemDB.name}${newBadge}</p>`;
+				}).join('');
+
+				const rewardHTML = `
+					<div class="my-2 p-3 bg-gray-800 rounded border border-gray-600">
+						<p class="font-bold text-blue-300 mb-2">📦 Phần thưởng lần ${i}:</p>
+						${itemsHTML || '<p class="text-gray-400 italic">Không có vật phẩm</p>'}
+					</div>
+				`;
+				detailContainer.insertAdjacentHTML('beforeend', rewardHTML);
+
+				totalRewards.gold += simulationResult.rewards.gold;
+				totalRewards.items.push(...simulationResult.rewards.items);
+
+				// Cập nhật header đã hoàn thành
+				const headers = logContainer.querySelectorAll('h3');
+				if (headers[i - 1]) {
+					headers[i - 1].innerHTML = `--- Lượt ${i} / ${repeatCount} --- <span class="text-sm text-green-400">(hoàn thành ✓)</span> <span class="text-xs text-gray-400">[Click để xem/ẩn]</span>`;
+				}
+
+				if (stopAdventureFlag) break;
+			}
+
+			// --- Kết thúc hoặc dừng phiêu lưu ---
+			if (!stopAdventureFlag) {
+				processRewards(totalRewards);
+
+				// Hiển thị tổng kết đẹp
+				const uniqueItems = {};
+				totalRewards.items.forEach(item => {
+					const key = `${item.type}-${item.id}`;
+					if (!uniqueItems[key]) {
+						uniqueItems[key] = { ...item, count: 0 };
+					}
+					uniqueItems[key].count++;
+				});
+
+				const summaryItemsHTML = Object.values(uniqueItems).map(item => {
+					const itemDB = item.type === 'character' ? CHARACTERS_DB[item.id] : EQUIPMENT_DB[item.id];
+					const colorClass = getRarityClass(itemDB.rarity);
+					return `<p>• ${itemDB.name} ${getStars(itemDB.rarity)} <span class="font-bold text-white">x${item.count}</span></p>`;
+				}).join('');
+
+				const summaryHTML = `
+					<hr class="my-4 border-gray-600">
+					<div class="bg-gradient-to-r from-purple-900 to-blue-900 p-4 rounded-lg my-4">
+						<p class="text-2xl font-bold text-yellow-300 mb-3 text-center">🏆 Tổng Kết Phần Thưởng 🏆</p>
+						<p class="text-lg mb-2">Tổng số lần: <span class="font-bold text-white">${repeatCount}</span></p>
+						<div class="mt-3">
+							<p class="font-bold text-green-300 mb-2">Vật phẩm nhận được:</p>
+							${summaryItemsHTML || '<p class="text-gray-400 italic">Không có vật phẩm</p>'}
+						</div>
+					</div>
+				`;
+				logContainer.insertAdjacentHTML('beforeend', summaryHTML);
+				logContainer.scrollTop = logContainer.scrollHeight;
+
+				document.getElementById('stop-adventure-button').classList.add('hidden');
+				document.getElementById('adventure-confirm-button').classList.remove('hidden');
+			} else {
+				showScreen('main-screen');
+				updateUI();
+			}
+		}
+
+		// Hàm toggle hiển thị chi tiết phiêu lưu
+		function toggleAdventureDetail(index) {
+			const detail = document.getElementById(`adventure-detail-${index}`);
+			if (detail) {
+				if (detail.style.display === 'none') {
+					detail.style.display = 'block';
+				} else {
+					detail.style.display = 'none';
+				}
+			}
+		}
+		function stopAdventure() {
+			stopAdventureFlag = true;
+			if (adventureInterval) clearInterval(adventureInterval);
+			if (adventureTimeout) clearTimeout(adventureTimeout);
+			adventureInterval = null;
+			adventureTimeout = null;
+			showToast("Đã dừng phiêu lưu!", false);
+			showScreen('main-screen');
+			updateUI();
+		}
+		function processRewards(rewards) {
+			gameData.gold += rewards.gold;
+			rewards.items.forEach(item => addItem(item.type, item.id));
+			saveGame();
+		}
+		function runAdventureSimulation(dungeonId) {
+			const dungeon = DUNGEONS_DB[dungeonId];
+			const playerStats = getTotalStats();
+			const playerCharDB = CHARACTERS_DB[gameData.equippedCharacterId];
+			let adventureLog = [];
+			let rewards = { gold: 0, items: [] };
+			let playerWonAdventure = true;
+			let enemyEncounters = []; // Lưu danh sách enemy gặp phải
+			for (let i = 0; i < dungeon.events; i++) {
+				const isBossFight = i === dungeon.events - 1;
+				const enemyId = isBossFight ? dungeon.boss : dungeon.enemies[Math.floor(Math.random() * dungeon.enemies.length)];
+				const enemy = ENEMIES_DB[enemyId];
+				const enemyNameDisplay = isBossFight ? `${enemy.name} (BOSS)` : enemy.name;
+				const enemySkillName = enemy.skills[0].name;
+				const characterNameDisplay = playerCharDB.name
+				enemyEncounters.push(enemyNameDisplay); // Lưu tên enemy
+				adventureLog.push(`<hr class="my-2 border-gray-600"><p class="font-bold text-cyan-400">Sự kiện ${i + 1}: Gặp ${enemyNameDisplay}!</p>`);
+				const combatResult = runCombat(playerStats, playerCharDB.skills, JSON.parse(JSON.stringify(enemy.stats)), enemyNameDisplay, enemySkillName, characterNameDisplay);
+				adventureLog = adventureLog.concat(combatResult.log);
+				if (!combatResult.playerWon) {
+					playerWonAdventure = false;
+					adventureLog.push(`<p class="font-bold text-red-500">Bạn đã bị đánh bại!</p>`);
+					break;
+				} else {
+					adventureLog.push(`<p class="font-bold text-green-400">Bạn đã chiến thắng!</p>`);
+				}
+			}
+			adventureLog.push(`<hr class="my-2 border-gray-600"><p class="font-bold text-yellow-400">Kết thúc phiêu lưu. Phần thưởng:</p>`);
+			if (playerWonAdventure) {
+				// --Thắng: 50% drop nhân vật
+				if (Math.random() < 0.5) {
+					const charDropList = dungeon.rewards.win.char;
+					if (charDropList && charDropList.length > 0) {
+						const charDrop = charDropList[Math.floor(Math.random() * charDropList.length)];
+						rewards.items.push({ type: 'character', id: charDrop });
+						adventureLog.push(`<p>+1 Thẻ Nhân vật: <span class="font-bold ${getRarityClass(CHARACTERS_DB[charDrop].rarity)}">${CHARACTERS_DB[charDrop].name}</span></p>`);
+					}
+				}
+				// --Thắng: 100% drop trang bị
+				if (Math.random() < 1) {
+					const equipDropList = dungeon.rewards.win.equip;
+					if (equipDropList && equipDropList.length > 0) {
+						const equipDrop = equipDropList[Math.floor(Math.random() * equipDropList.length)];
+						rewards.items.push({ type: 'equipment', id: equipDrop });
+						adventureLog.push(`<p>+1 Thẻ Trang bị: <span class="font-bold ${getRarityClass(EQUIPMENT_DB[equipDrop].rarity)}">${EQUIPMENT_DB[equipDrop].name}</span></p>`);
+					}
+				}
+			} else {
+				// --Thua: 30% drop trang bị
+				if (Math.random() < 0.3) {
+					const equipDropList = dungeon.rewards.win.equip;
+					if (equipDropList && equipDropList.length > 0) {
+						const equipDrop = equipDropList[Math.floor(Math.random() * equipDropList.length)];
+						rewards.items.push({ type: 'equipment', id: equipDrop });
+						adventureLog.push(`<p>+1 Thẻ Trang bị: <span class="font-bold ${getRarityClass(EQUIPMENT_DB[equipDrop].rarity)}">${EQUIPMENT_DB[equipDrop].name}</span></p>`);
+					}
+				}
+			}
+			return { log: adventureLog, rewards: rewards, enemyEncounters: enemyEncounters };
+		}
+		function addItem(type, id) {
+			const collection = type === 'character' ? gameData.characters : gameData.equipment;
+			const db = type === 'character' ? CHARACTERS_DB : EQUIPMENT_DB;
+			const item = collection[id];
+
+			if (item) {
+				// --- Nếu đã sở hữu: chuyển hóa thành tài nguyên ---
+				const rarity = db[id].rarity;
+				const amount = rarity; // số lượng tài nguyên tương ứng với số sao
+
+				if (type === 'character') {
+					// Tăng Soul Fragment
+					gameData.soulFragment = (gameData.soulFragment || 0) + amount;
+					showToast(
+						`Đã chuyển hóa ${db[id].name} thành ${amount} Mảnh Linh Hồn!`,
+						true
+					);
+				} else {
+					// Tăng Iron Bar
+					gameData.ironBar = (gameData.ironBar || 0) + amount;
+					showToast(
+						`Đã chuyển hóa ${db[id].name} thành ${amount} Thỏi Sắt!`,
+						true
+					);
+				}
+			} else {
+				// --- Nếu chưa sở hữu: thêm mới như cũ ---
+				collection[id] = { level: 0 };
+				showToast(
+					`Nhận được ${type === 'character' ? 'nhân vật' : 'trang bị'} mới: ${db[id].name}!`,
+					true
+				);
+			}
+		}
+
+		// --- *** UPDATED COMBAT LOGIC *** ---
+		function runCombat(basePlayerStats, playerSkills, baseEnemyStats, enemyName, enemySkillName, playerName) {
+			let log = [];
+			let playerCurrentHP = basePlayerStats.hp;
+			let enemyCurrentHP = baseEnemyStats.hp;
+
+			let turn = basePlayerStats.spd >= baseEnemyStats.spd ? 'player' : 'enemy';
+			let turnCount = 1;
+
+			let playerBuffs = [];
+			let enemyDebuffs = [];
+
+			while (playerCurrentHP > 0 && enemyCurrentHP > 0) {
+
+				// Sudden Death
+				if (turnCount === 21) {
+					log.push('<p class="text-red-500 font-bold">*** Chế độ SUDDEN DEATH đã kích hoạt ***</p>');
+				}
+
+				let combatPlayerStats = { ...basePlayerStats };
+				let combatEnemyStats = { ...baseEnemyStats };
+
+				// Cập nhật buff/debuff
+				playerBuffs = playerBuffs.filter(b => b.duration > 0);
+				enemyDebuffs = enemyDebuffs.filter(d => d.duration > 0);
+
+				playerBuffs.forEach(buff => {
+					combatPlayerStats[buff.stat] *= (1 + buff.value);
+					buff.duration--;
+				});
+				enemyDebuffs.forEach(debuff => {
+					combatEnemyStats[debuff.stat] *= (1 + debuff.value);
+					debuff.duration--;
+				});
+
+				const overtimeDamage = Math.max(0, turnCount - 20);
+
+				// --- Lượt của người chơi ---
+				if (turn === 'player') {
+					let availableSkills = playerSkills.filter(skill => {
+						if (!skill.effect) return true;
+						if (skill.effect.type === 'buff') {
+							return !playerBuffs.some(b => b.stat === skill.effect.stat);
+						}
+						if (skill.effect.type === 'debuff') {
+							return !enemyDebuffs.some(d => d.stat === skill.effect.stat);
+						}
+						return true;
+					});
+
+					let activatedSkills = availableSkills.filter(s => s.chance > 0 && (Math.random() * 100 < s.chance));
+					let usedSkill;
+					if (activatedSkills.length > 0) {
+						activatedSkills.sort((a, b) => (b.multiplier || 0) - (a.multiplier || 0) || (b.ignoreDef || 0) - (a.ignoreDef || 0));
+						usedSkill = activatedSkills[0];
+					} else {
+						usedSkill = playerSkills.find(s => s.chance === 0);
+					}
+
+					let logMessage = `<i class="fa-solid fa-hand-fist text-blue-400"></i> - (Lượt ${turnCount}) <span class="text-blue-400">${playerName}</span> dùng <span class="text-teal-300">${usedSkill.name}</span>, `;
+
+					// Tính né tránh của kẻ địch
+					const enemyDodgeChance = Math.min(75, Math.floor(combatEnemyStats.spd / 2));
+					if (Math.random() * 100 < enemyDodgeChance) {
+						logMessage += `<span class="text-green-400">${enemyName}</span> đã <span class="text-green-400">né</span> được đòn!`;
+						log.push(`<p>${logMessage}</p>`);
+						turn = 'enemy';
+						turnCount++;
+						continue;
+					}
+
+					// Nếu không né thì xử lý như bình thường
+					if (usedSkill.effect) {
+						if (usedSkill.effect.type === 'buff') {
+							playerBuffs.push({ ...usedSkill.effect });
+							logMessage += `tăng ${usedSkill.effect.stat} của bản thân.`;
+						} else if (usedSkill.effect.type === 'debuff') {
+							enemyDebuffs.push({ ...usedSkill.effect });
+							logMessage += `giảm ${usedSkill.effect.stat} của đối thủ.`;
+						}
+					} else {
+						let damage = Math.max(1, combatPlayerStats.atk - (combatEnemyStats.def * (1 - (usedSkill.ignoreDef || 0))));
+						damage = Math.floor(damage * usedSkill.multiplier);
+
+						const critChance = Math.floor(combatPlayerStats.lck / 2);
+						if (Math.random() * 100 < critChance) {
+							let critDamage = Math.max(1, combatPlayerStats.atk - (combatEnemyStats.def * (1 - (usedSkill.ignoreDef || 0)) * 0.5));
+							critDamage = Math.floor(critDamage * usedSkill.multiplier * 1.5) + overtimeDamage;
+							enemyCurrentHP -= critDamage;
+							logMessage += `<span class="text-yellow-300">Đòn chí mạng!</span> gây ${critDamage} sát thương.`;
+						} else {
+							damage += overtimeDamage;
+							enemyCurrentHP -= damage;
+							logMessage += `gây ${damage} sát thương.`;
+						}
+					}
+
+					logMessage += ` (Địch: ${Math.max(0, Math.floor(enemyCurrentHP))}/${baseEnemyStats.hp})`;
+					log.push(`<p>${logMessage}</p>`);
+					turn = 'enemy';
+				}
+				// --- Lượt của kẻ địch ---
+				else {
+					const dodgeChance = Math.min(75, Math.floor(combatPlayerStats.spd / 2));
+					if (Math.random() * 100 < dodgeChance) {
+						log.push(`<p><i class="fa-solid fa-wind text-green-400"></i> - (Lượt ${turnCount}) <span class="text-red-400">${enemyName}</span> dùng <span class="text-teal-300">${enemySkillName}</span>, nhưng <span class="text-yellow-300">${playerName}</span> đã <span class="text-green-400">né</span> được!</p>`);
+					} else {
+						const critChanceEnemy = Math.floor(combatEnemyStats.lck / 2);
+						let damage = Math.max(1, combatEnemyStats.atk - combatPlayerStats.def);
+						damage += overtimeDamage;
+
+						if (Math.random() * 100 < critChanceEnemy) {
+							damage = Math.max(1, (combatEnemyStats.atk - (combatPlayerStats.def * 0.5)) * 1.5);
+							damage = Math.floor(damage) + overtimeDamage;
+							log.push(`<p><i class="fa-solid fa-skull text-red-400"></i> - (Lượt ${turnCount}) <span class="text-red-400">${enemyName}</span> dùng <span class="text-teal-300">${enemySkillName}</span>, <span class="text-yellow-300">đòn chí mạng</span>, gây ${damage} sát thương!`);
+						} else {
+							log.push(`<p><i class="fa-solid fa-shield text-red-400"></i> - (Lượt ${turnCount}) <span class="text-red-400">${enemyName}</span> dùng <span class="text-teal-300">${enemySkillName}</span>, gây ${damage} sát thương.`);
+						}
+
+						playerCurrentHP -= damage;
+						log[log.length - 1] += ` (HP: ${Math.max(0, Math.floor(playerCurrentHP))}/${basePlayerStats.hp})</p>`;
+					}
+
+					turn = 'player';
+				}
+
+				turnCount++;
+			}
+
+			return { playerWon: playerCurrentHP > 0, log: log };
+		}
+
+		// ---UNCHANGED UI RENDERING---
+		function updateUI() {
+			if (!gameData || gameData.gold === undefined) return;
+
+			document.getElementById('gold-display').textContent = gameData.gold;
+			document.getElementById('soul-display').textContent = gameData.soulFragment;
+			document.getElementById('iron-display').textContent = gameData.ironBar;
+
+			const charContainer = document.getElementById('equipped-character');
+			if (gameData.equippedCharacterId) {
+				const charData = gameData.characters[gameData.equippedCharacterId]; const charDB = CHARACTERS_DB[gameData.equippedCharacterId];
+				charContainer.innerHTML = `<p class="font-bold text-lg ${getRarityClass(charDB.rarity)}">${charDB.name} +${charData.level}</p><p class="text-sm text-yellow-400">${getStars(charDB.rarity)}</p>`;
+			} else { charContainer.innerHTML = '<p class="text-gray-400">Chưa chọn nhân vật.</p>'; }
+			const equipContainer = document.getElementById('equipped-equipment');
+			if (gameData.equippedEquipmentId) {
+				const equipData = gameData.equipment[gameData.equippedEquipmentId]; const equipDB = EQUIPMENT_DB[gameData.equippedEquipmentId];
+				equipContainer.innerHTML = `<p class="font-bold text-lg ${getRarityClass(equipDB.rarity)}">${equipDB.name} +${equipData.level}</p><p class="text-sm text-yellow-400">${getStars(equipDB.rarity)}</p>`;
+			} else { equipContainer.innerHTML = '<p class="text-gray-400">Chưa trang bị.</p>'; }
+			const totalStats = getTotalStats();
+			document.getElementById('total-stats').innerHTML = `<span><strong class="text-red-400">HP:</strong> ${totalStats.hp}</span><span><strong class="text-orange-400">ATK:</strong> ${totalStats.atk}</span><span><strong class="text-blue-400">DEF:</strong> ${totalStats.def}</span><span><strong class="text-green-400">SPD:</strong> ${totalStats.spd}</span><span><strong class="text-yellow-400">LCK:</strong> ${totalStats.lck}</span><span><strong>Crit:</strong> ${Math.floor(totalStats.lck / 2)}%</span><span><strong>Dodge:</strong> ${Math.min(50, Math.floor(totalStats.spd / 2))}%</span>`;
+		}
+		function getTotalStats() {
+			const stats = { hp: 0, atk: 0, def: 0, spd: 0, lck: 0 };
+			if (gameData.equippedCharacterId) {
+				const charData = gameData.characters[gameData.equippedCharacterId]; const charDB = CHARACTERS_DB[gameData.equippedCharacterId];
+				const charStats = calculateFullStats(charDB, charData.level);
+				for (const stat in charStats) stats[stat] = (stats[stat] || 0) + charStats[stat];
+			}
+			if (gameData.equippedEquipmentId) {
+				const equipData = gameData.equipment[gameData.equippedEquipmentId]; const equipDB = EQUIPMENT_DB[gameData.equippedEquipmentId];
+				const equipStats = calculateFullStats(equipDB, equipData.level);
+				for (const stat in equipStats) stats[stat] = (stats[stat] || 0) + equipStats[stat];
+			}
+			return stats;
+		}
+		function getDungeonCost(rarity) {
+			switch (rarity) {
+				case 1: return 10;
+				case 2: return 20;
+				case 3: return 40;
+				case 4: return 70;
+				case 5: return 100;
+				default: return 10;
+			}
+		}
+		function getGlobalDayIndex() {
+			const baseDate = new Date('1900-01-01T00:00:00Z'); // mốc chung cho toàn cầu
+			const now = new Date();
+			const diffTime = now.getTime() - baseDate.getTime();
+			const dayIndex = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // số ngày đã trôi qua
+			return dayIndex;
+		}
+		function renderCollectionList(type) {
+			const listContainer = document.getElementById(`${type}-list`);
+			const collection = type === 'character' ? gameData.characters : gameData.equipment;
+			const db = type === 'character' ? CHARACTERS_DB : EQUIPMENT_DB;
+			const equippedId = type === 'character' ? gameData.equippedCharacterId : gameData.equippedEquipmentId;
+
+			let items = Object.keys(collection).map(id => ({ id, ...collection[id], ...db[id] }));
+			items.sort((a, b) => {
+				if (a.id === equippedId) return -1;
+				if (b.id === equippedId) return 1;
+				return b.rarity - a.rarity;
+			});
+
+			if (items.length === 0) {
+				listContainer.innerHTML = `<p class="text-center text-gray-400">Bạn chưa sở hữu gì.</p>`;
+				return;
+			}
+
+			listContainer.innerHTML = items.map(item => {
+				const isEquipped = item.id === equippedId;
+				const canUpgrade = item.level < 9;
+
+				// Tính chi phí nâng cấp dựa trên rarity và cấp hiện tại
+				const baseCost = item.rarity;  // 1 sao = 1, 2 sao = 2, ...
+				const increment = item.rarity; // tăng thêm mỗi cấp tương ứng rarity
+				const cost = baseCost + increment * item.level;
+
+				// Loại tài nguyên hiển thị
+				const resourceName = type === 'character' ? 'Soul Fragment' : 'Iron Bar';
+				const resourceDisplay = type === 'character' ? 'Mảnh Linh Hồn' : 'Thỏi Sắt';
+				const resourceAmount = type === 'character' ? gameData.soulFragment || 0 : gameData.ironBar || 0;
+
+				// Đường dẫn ảnh
+				const imgSrc = type === 'character'
+					? `./images/chars/${item.id}.png`
+					: `./images/items/missingEquip.png`;
+
+				return `
+				<div class="bg-gray-700 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 card-item">
+					<!-- Cột ảnh + tên -->
+					<div class="flex items-center space-x-3 mb-2 sm:mb-0">
+						<img src="${imgSrc}"
+							 onerror="this.src='./images/items/missingEquip.png'"
+							 alt="${item.name}"
+							 class="w-12 h-12 object-cover rounded-lg border border-gray-600 shadow-md">
+						<div>
+							<p class="font-bold text-base sm:text-lg ${getRarityClass(item.rarity)} cursor-pointer hover:underline"
+							   onclick="showItemDetail('${type}', '${item.id}')">
+							   ${item.name} +${item.level}
+							</p>
+							<p class="text-xs sm:text-sm text-yellow-400">${getStars(item.rarity)}</p>
+						</div>
+					</div>
+
+					<!-- Cột nút hành động -->
+					<div class="flex items-center space-x-2 self-end sm:self-center">
+						${isEquipped
+						? `<span class="text-sm font-bold text-green-400 px-3 py-2 rounded-full bg-gray-800">Đang Dùng</span>`
+						: `<button onclick="equipItem('${type}', '${item.id}')"
+									  class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded">Dùng</button>`
+					}
+
+						<button 
+						  onclick="showUpgradeConfirmation('${type}', '${item.id}')"
+						  class="text-sm bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-3 rounded ${!canUpgrade ? 'opacity-50 cursor-not-allowed' : ''}"
+						  ${!canUpgrade ? 'disabled' : ''}>
+						  ${canUpgrade ? `C.Hóa (${cost} ${resourceDisplay})` : 'Max Level'}
+						</button>
+					</div>
+				</div>`;
+			}).join('');
+		}
+		function showDungeonInfo(dungeonId) {
+			const dungeon = DUNGEONS_DB[dungeonId];
+			document.getElementById('dungeon-info-title').textContent = `Vật phẩm có thể nhận từ: ${dungeon.name}`;
+			let content = `<h4 class="font-bold text-lg mb-2 text-cyan-400">Nhân Vật:</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">`;
+			dungeon.rewards.win.char.forEach(charId => {
+				const charDB = CHARACTERS_DB[charId];
+				const owned = gameData.characters[charId] !== undefined;
+				content += `<div class="bg-gray-700 p-2 rounded ${!owned ? 'opacity-50' : ''}"><p class="font-bold ${getRarityClass(charDB.rarity)}">${charDB.name}</p><p class="text-sm text-yellow-400">${getStars(charDB.rarity)}</p></div>`;
+			});
+			content += '</div>';
+			content += `<h4 class="font-bold text-lg mb-2 text-cyan-400">Trang Bị:</h4><div class="grid grid-cols-1 sm:grid-cols-2 gap-2">`;
+			dungeon.rewards.win.equip.forEach(equipId => {
+				const equipDB = EQUIPMENT_DB[equipId];
+				const owned = gameData.equipment[equipId] !== undefined;
+				content += `<div class="bg-gray-700 p-2 rounded ${!owned ? 'opacity-50' : ''}"><p class="font-bold ${getRarityClass(equipDB.rarity)}">${equipDB.name}</p><p class="text-sm text-yellow-400">${getStars(equipDB.rarity)}</p></div>`;
+			});
+			content += '</div>';
+			document.getElementById('dungeon-info-content').innerHTML = content;
+			showModal('dungeon-info-modal');
+		}
+		function renderDungeonList() {
+			const listContainer = document.getElementById('dungeon-list');
+			const dungeons = Object.keys(DUNGEONS_DB).map(id => ({ id, ...DUNGEONS_DB[id] }));
+
+			// --- Gom dungeon theo rarity ---
+			const grouped = {};
+			for (let i = 1; i <= 5; i++) grouped[i] = dungeons.filter(d => d.rarity === i);
+
+			// --- Lấy chỉ 1 dungeon cho mỗi rarity, đổi theo ngày ---
+			const day = getGlobalDayIndex();
+			const selected = [];
+
+			for (let rarity = 1; rarity <= 5; rarity++) {
+				const group = grouped[rarity];
+				if (group.length > 0) {
+					const index = day % group.length; // thay đổi mỗi ngày
+					selected.push(group[index]);
+				}
+			}
+
+			// --- Render danh sách ---
+			listContainer.innerHTML = selected.map(dungeon => {
+				const cost = getDungeonCost(dungeon.rarity);
+				const rarityColor = getRarityClass(dungeon.rarity);
+				const rarityLabel = `Thế Giới ${dungeon.rarity}★`;
+				const { missingChars, missingEquips } = countMissingItems(dungeon.id);
+
+				return `
+					<div class="mb-4">
+						<h3 class="text-lg font-semibold mb-2 ${rarityColor}">${rarityLabel}</h3>
+						<div class="bg-gray-700 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between border border-gray-600">
+							<div class="mb-2 sm:mb-0 cursor-pointer flex-1" onclick="showDungeonInfo('${dungeon.id}')">
+								<p class="font-bold text-base sm:text-lg ${rarityColor} hover:underline">${dungeon.name}</p>
+								<p class="text-xs sm:text-sm text-yellow-400">${getStars(dungeon.rarity)}</p>
+								<div class="flex gap-3 mt-2 text-xs">
+									<span class="text-blue-300">🧑 Chưa có: <span class="font-bold text-white">${missingChars}</span> NEW</span>
+									<span class="text-green-300">⚔️ Chưa có: <span class="font-bold text-white">${missingEquips}</span> NEW</span>
+								</div>
+							</div>
+							<div class="self-end sm:self-center">
+								<button 
+									onclick="confirmAdventure('${dungeon.id}')"
+									class="text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+									Phiêu Lưu (${cost} vàng)
+								</button>
+							</div>
+						</div>
+					</div>`;
+			}).join('');
+		}
+
+		async function loadChangelog() {
+			try {
+				const response = await fetch('./CHANGELOG.md');
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				const markdown = await response.text();
+
+				// Check if marked is loaded
+				if (typeof marked === 'undefined') {
+					throw new Error('Marked library not loaded');
+				}
+
+				const html = marked.parse(markdown);
+
+				// Apply custom styling to the rendered HTML
+				const styledHtml = html
+					.replace(/<h2>/g, '<h2 class="font-bold text-lg mb-2 mt-4 text-yellow-400">')
+					.replace(/<h1>/g, '<h1 class="font-bold text-xl mb-3 mt-4 text-yellow-300">')
+					.replace(/<ul>/g, '<ul class="list-disc list-inside mb-4 ml-4 space-y-1">')
+					.replace(/<li>/g, '<li class="text-gray-300">');
+
+				document.getElementById('changelog-content').innerHTML = styledHtml;
+			} catch (error) {
+				console.error('Failed to load changelog:', error);
+				// Fallback to hardcoded content
+				document.getElementById('changelog-content').innerHTML = `
+                    <p>fail to load markdown</p>
+                `;
+			}
+		}
+
+		function renderModalContent(modalId) {
+			switch (modalId) {
+				case 'characters-modal': renderCollectionList('character'); break;
+				case 'equipment-modal': renderCollectionList('equipment'); break;
+				case 'dungeons-modal': renderDungeonList(); break;
+				case 'changelog-modal': loadChangelog(); break;
+			}
+		}
+
+		// --- INITIALIZATION ---
+		window.onload = () => {
+			const savedGame = localStorage.getItem('mangaNexusSave');
+			if (savedGame) {
+				try {
+					gameData = JSON.parse(savedGame);
+					showToast("Đã tải dữ liệu cũ. Hãy lưu lại bằng file!", true);
+					localStorage.removeItem('mangaNexusSave');
+				} catch (e) {
+					gameData = JSON.parse(JSON.stringify(initialGameData));
+				}
+			} else {
+				gameData = JSON.parse(JSON.stringify(initialGameData));
+			}
+
+			updateUI();
+			updateEquippedCharacterImage("equipped-image"); // ← thêm dòng này để hiện ảnh ngay khi vào game
+			showScreen(savedGame ? 'main-screen' : 'login-screen');
+		};
+	</script>
+</body>
+
+</html>
