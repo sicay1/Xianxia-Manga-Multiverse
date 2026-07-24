@@ -126,3 +126,30 @@ Changing `db/init.sql` later requires another destructive
 The main game implementation remains in `index.html`. `online-client.js` owns
 definition loading, authentication, cloud persistence, retries, conflict
 handling, and event history.
+
+## Permanent quest journey
+
+Five permanent chapters contain 40 quests whose definitions are seeded in
+PostgreSQL and returned by `get_game_content`. Player counters, claimed
+rewards, and cosmetic titles are stored privately in `player_quests/main`.
+
+The authenticated quest API consists of `get_quest_progress`,
+`report_quest_events`, `claim_quest_reward`, and `apply_economy_action`.
+Claims recheck current saved state and write rewards and claim state together.
+Equipment selection, upgrades, ownership, dungeon unlock costs, and resource
+balances are validated by Nakama.
+
+Ownership, upgrades, balances, dungeon unlocks, and tower progress count
+retroactively. Dungeon and tower victory counters begin after deployment.
+Those combat events remain client-reported and therefore are not anti-cheat
+protection.
+
+Quest definitions follow the same first-boot seed policy as other game
+content. Apply this update with:
+
+```sh
+podman compose down --volumes
+podman compose up
+```
+
+This intentionally removes local accounts, saves, history, and quest progress.

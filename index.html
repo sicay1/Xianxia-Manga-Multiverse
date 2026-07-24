@@ -339,6 +339,7 @@
 					</button>
 				</div>
 
+				<div id="quest-pins" class="mt-6 w-full max-w-md"></div>
 				<div class="mt-10 w-full max-w-md">
 					<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
 						<button onclick="saveGame(true)"
@@ -832,6 +833,11 @@
 			if (data.towerProgress === undefined) data.towerProgress = 1;
 			return data;
 		}
+		function reportQuestEvent(type, amount = 1, metadata = {}) {
+			if (window.reportQuestEvent && window.reportQuestEvent !== reportQuestEvent) {
+				window.reportQuestEvent(type, amount, metadata);
+			}
+		}
 
 		// ---UNCHANGED GAME LOGIC---
 		function startGame() {
@@ -1274,6 +1280,8 @@
 				gameData.gold += totalRewards.gold;
 				gameData.soulFragment += totalRewards.soulFragment;
 				gameData.ironBar += totalRewards.ironBar;
+				const towerWins = battleHistories.filter(entry => entry.playerWon).length;
+				if (towerWins > 0) reportQuestEvent('tower_win', towerWins, { floor: selectedFloor });
 
 				// Cập nhật tiến trình tầng nếu thắng
 				if (playerWonLast && selectedFloor >= gameData.towerProgress) {
@@ -1623,6 +1631,8 @@
 			// --- Kết thúc hoặc dừng phiêu lưu ---
 			if (!stopAdventureFlag) {
 				processRewards(totalRewards);
+				const dungeonWins = adventureHistories.filter(entry => entry.rewards && entry.rewards.playerWon).length;
+				if (dungeonWins > 0) reportQuestEvent('dungeon_win', dungeonWins, { dungeonId });
 
 				// Hiển thị tổng kết đẹp
 				const uniqueItems = {};
@@ -1746,7 +1756,8 @@
 					}
 				}
 			}
-			return { log: adventureLog, rewards: rewards, enemyEncounters: enemyEncounters };
+			rewards.playerWon = playerWonAdventure;
+			return { log: adventureLog, rewards: rewards, enemyEncounters: enemyEncounters, playerWon: playerWonAdventure };
 		}
 		function addItem(type, id) {
 			const collection = type === 'character' ? gameData.characters : gameData.equipment;
@@ -2148,6 +2159,9 @@
 				case 'equipment-modal': renderCollectionList('equipment'); break;
 				case 'dungeons-modal': renderDungeonList(); break;
 				case 'changelog-modal': loadChangelog(); break;
+				case 'quests-modal':
+					if (window.renderQuestJourney) window.renderQuestJourney();
+					break;
 			}
 		}
 

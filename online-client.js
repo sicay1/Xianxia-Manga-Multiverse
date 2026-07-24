@@ -21,6 +21,10 @@
   let retryTimer = null;
   let retryCount = 0;
   let pendingHistory = [];
+  let questProgress = null;
+  let questAvailable = true;
+  let pendingQuestEvents = [];
+  let reportingQuestEvents = false;
 
   function setStatus(message, kind = "idle") {
     const status = document.getElementById("cloud-status");
@@ -198,6 +202,10 @@
     if (!content.characters.c001 || !content.wikiLinks) {
       throw new Error("The server content is missing required starter data.");
     }
+    if (!Array.isArray(content.questChapters) || content.questChapters.length !== 5 ||
+        content.questChapters.reduce((count, chapter) => count + (chapter.quests?.length || 0), 0) !== 40) {
+      throw new Error("The server returned incomplete quest definitions.");
+    }
   }
 
   async function loadGameContent() {
@@ -212,7 +220,233 @@
     TOWER_ENEMIES = content.towerEnemies;
     TOWER_REWARDS = content.towerRewards;
     WIKI_LINKS = content.wikiLinks;
+    QUEST_CHAPTERS = content.questChapters || [];
     GAME_CONTENT_VERSION = content.version;
+  }
+
+  function rpcPayload(response) {
+    const raw = response?.payload ?? response;
+    return typeof raw === "string" ? JSON.parse(raw) : raw;
+  }
+
+  function questStateById() {
+    return new Map((questProgress?.quests || []).map(item => [item.id, item]));
+  }
+
+  function rewardLabel(reward) {
+    if (reward.type === "gold") return `${reward.amount} gold`;
+    if (reward.type === "soul_fragment") return `${reward.amount} Soul Fragments`;
+    if (reward.type === "iron_bar") return `${reward.amount} Iron Bars`;
+    if (reward.type === "character") return `Character: ${CHARACTERS_DB[reward.itemId]?.name || reward.itemId}`;
+    if (reward.type === "equipment") return `Equipment: ${EQUIPMENT_DB[reward.itemId]?.name || reward.itemId}`;
+    if (reward.type === "title") return `Title: ${reward.title}`;
+    return reward.type;
+  }
+
+  function renderQuestPins() {
+    const container = document.getElementById("quest-pins");
+    if (!container) return;
+    const user = document.getElementById("cloud-user");
+    if (user && session) user.textContent = `${session.username || "Player"}${questProgress?.activeTitle ? ` · ${questProgress.activeTitle}` : ""}`;
+    if (!questAvailable) {
+      container.innerHTML = `<div class="rounded-lg border border-red-700 bg-red-950/60 p-3 text-sm text-red-200">
+        Quest service offline. Gameplay and cloud saving are still available.
+      </div>`;
+      return;
+    }
+    const states = questStateById();
+    const active = [];
+    for (const chapter of QUEST_CHAPTERS) {
+      for (const quest of chapter.quests) {
+        const state = states.get(quest.id);
+        if (state?.status === "claimable" || state?.status === "active") active.push({ quest, state });
+      }
+    }
+    active.sort((a, b) => (a.state.status === "claimable" ? -1 : 0) - (b.state.status === "claimable" ? -1 : 0));
+    container.innerHTML = active.slice(0, 3).map(({ quest, state }) => {
+      const objective = quest.objectives[0];
+      const progress = state.objectives[0] || { current: 0, target: objective.target };
+      return `<button onclick="showModal('quests-modal')" class="block w-full text-left mb-2 rounded-lg border ${
+        state.status === "claimable" ? "border-yellow-400 bg-yellow-900/50" : "border-emerald-700 bg-gray-800/80"
+      } p-3">
+        <div class="flex justify-between gap-3"><strong>${quest.name}</strong><span>${progress.current}/${progress.target}</span></div>
+        <div class="mt-1 text-xs text-gray-300">${state.status === "claimable" ? "Reward ready to claim" : objective.description}</div>
+      </button>`;
+    }).join("") || `<p class="text-center text-sm text-emerald-300">All available quests completed.</p>`;
+  }
+
+  function renderQuestJourney() {
+    const list = document.getElementById("quest-list");
+    const modal = document.getElementById("quests-modal");
+    if (!list || !modal) return;
+    const heading = modal.querySelector("h3");
+    if (heading) heading.textContent = "Permanent Quest Journey";
+    if (!questAvailable) {
+      list.innerHTML = `<div class="text-center"><p class="text-red-300 mb-4">Quest progress is temporarily unavailable.</p>
+        <button onclick="refreshQuestProgress()" class="bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded">Retry</button></div>`;
+      return;
+    }
+    if (!questProgress) {
+      list.innerHTML = `<p class="text-center text-gray-400">Loading quest journey...</p>`;
+      return;
+    }
+    const states = questStateById();
+    list.innerHTML = QUEST_CHAPTERS.map(chapter => {
+      const claimed = chapter.quests.filter(quest => states.get(quest.id)?.status === "claimed").length;
+      const cards = chapter.quests.map(quest => {
+        const state = states.get(quest.id) || { status: "locked", objectives: [] };
+        const colors = {
+          locked: "border-gray-700 opacity-60",
+          active: "border-blue-700",
+          claimable: "border-yellow-400 bg-yellow-950/40",
+          claimed: "border-green-700 bg-green-950/30"
+        };
+        const objectives = quest.objectives.map((objective, index) => {
+          const value = state.objectives[index] || { current: 0, target: objective.target };
+          return `<li>${objective.description}: <strong>${value.current}/${value.target}</strong></li>`;
+        }).join("");
+        const rewards = quest.rewards.map(rewardLabel).join(" · ");
+        return `<div class="mb-3 rounded-lg border ${colors[state.status]} p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div><h5 class="font-bold text-lg">${quest.name}${quest.optional ? " (Optional)" : ""}</h5>
+              <p class="text-sm text-gray-400">${quest.description}</p></div>
+            <span class="text-xs uppercase tracking-wide">${state.status}</span>
+          </div>
+          <ul class="mt-2 text-sm text-gray-200">${objectives}</ul>
+          <p class="mt-2 text-xs text-yellow-300">Reward: ${rewards}</p>
+          ${state.status === "claimable" ? `<button onclick="claimQuestReward('${quest.id}')" class="mt-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-2 px-4 rounded">Claim reward</button>` : ""}
+        </div>`;
+      }).join("");
+      const percent = Math.round((claimed / chapter.quests.length) * 100);
+      return `<section class="mb-6"><div class="mb-3 flex justify-between"><div><h4 class="text-xl font-bold text-cyan-300">${chapter.name}</h4>
+        <p class="text-sm text-gray-400">${chapter.description}</p></div><span>${claimed}/${chapter.quests.length} · ${percent}%</span></div>${cards}</section>`;
+    }).join("");
+  }
+
+  async function refreshQuestProgress(silent = false) {
+    if (!session) return;
+    try {
+      questProgress = rpcPayload(await client.rpc(session, "get_quest_progress", {}));
+      questAvailable = true;
+      renderQuestPins();
+      renderQuestJourney();
+    } catch (error) {
+      questAvailable = false;
+      renderQuestPins();
+      renderQuestJourney();
+      if (!silent) showToast(`Quest service: ${await parseError(error)}`, false);
+    }
+  }
+
+  async function reportQuestEvents() {
+    if (!session || reportingQuestEvents || pendingQuestEvents.length === 0) return;
+    reportingQuestEvents = true;
+    const batch = pendingQuestEvents.slice(0, 50);
+    try {
+      questProgress = rpcPayload(await client.rpc(session, "report_quest_events", { events: batch }));
+      pendingQuestEvents.splice(0, batch.length);
+      gameData.quests = gameData.quests || {};
+      gameData.quests.pendingEvents = pendingQuestEvents;
+      scheduleSave();
+      questAvailable = true;
+      renderQuestPins();
+      renderQuestJourney();
+      if (pendingQuestEvents.length) setTimeout(reportQuestEvents, 0);
+    } catch (_) {
+      questAvailable = false;
+      renderQuestPins();
+      setTimeout(reportQuestEvents, 5000);
+    } finally {
+      reportingQuestEvents = false;
+    }
+  }
+
+  function queueQuestEvent(type, amount = 1, metadata = {}) {
+    pendingQuestEvents.push({
+      id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      type,
+      amount,
+      metadata
+    });
+    gameData.quests = gameData.quests || {};
+    gameData.quests.pendingEvents = pendingQuestEvents;
+    scheduleSave();
+    reportQuestEvents();
+  }
+
+  async function claimQuestReward(questId) {
+    try {
+      if (dirty) await flushCloudSave(true);
+      if (dirty) throw new Error("Save pending progress before claiming the quest reward.");
+      const result = rpcPayload(await client.rpc(session, "claim_quest_reward", { questId }));
+      gameData = patchGameData(result.gameData);
+      stateVersion = result.stateVersion || stateVersion;
+      clientRevision = Number(result.clientRevision || clientRevision);
+      questProgress = result.questProgress;
+      questAvailable = true;
+      updateUI();
+      updateEquippedCharacterImage("equipped-image");
+      renderQuestPins();
+      renderQuestJourney();
+      recordHistory("quest_claim", { questId });
+      scheduleSave();
+      const chapter = QUEST_CHAPTERS.find(item => item.quests.some(quest => quest.id === questId));
+      const states = questStateById();
+      const chapterComplete = chapter && chapter.quests.filter(quest => !quest.optional)
+        .every(quest => states.get(quest.id)?.status === "claimed");
+      showToast(chapterComplete
+        ? `Chapter complete: ${chapter.name}!`
+        : `Quest reward claimed: ${result.rewards.map(rewardLabel).join(", ")}`, true);
+    } catch (error) {
+      questAvailable = false;
+      renderQuestJourney();
+      showToast(await parseError(error), false);
+    }
+  }
+
+  async function applyEconomyAction(payload) {
+    if (dirty) await flushCloudSave();
+    if (dirty) throw new Error("Cloud progress must sync before this action.");
+    const result = rpcPayload(await client.rpc(session, "apply_economy_action", payload));
+    gameData = patchGameData(result.gameData);
+    stateVersion = result.stateVersion || stateVersion;
+    clientRevision = Number(result.clientRevision || clientRevision);
+    updateUI();
+    updateEquippedCharacterImage("equipped-image");
+    refreshQuestProgress(true);
+    return result;
+  }
+
+  async function serverEquipItem(type, id) {
+    try {
+      await applyEconomyAction({ action: "equip", itemType: type, itemId: id });
+      hideModal(type === "character" ? "characters-modal" : "equipment-modal");
+      showToast("Equipment selection saved.", true);
+    } catch (error) {
+      showToast(await parseError(error), false);
+    }
+  }
+
+  async function serverUpgrade(type, id) {
+    try {
+      await applyEconomyAction({ action: "upgrade", itemType: type, itemId: id });
+      hideModal("upgrade-confirm-modal");
+      renderModalContent(type === "character" ? "characters-modal" : "equipment-modal");
+      if (!document.getElementById("item-detail-modal").classList.contains("hidden")) showItemDetail(type, id);
+      showToast("Upgrade completed and validated by Nakama.", true);
+    } catch (error) {
+      showToast(await parseError(error), false);
+    }
+  }
+
+  async function serverUnlockDungeon(dungeonId) {
+    try {
+      await applyEconomyAction({ action: "unlock_dungeon", dungeonId });
+      renderModalContent("dungeons-modal");
+      showToast(`Unlocked ${DUNGEONS_DB[dungeonId].name}.`, true);
+    } catch (error) {
+      showToast(await parseError(error), false);
+    }
   }
 
   async function renderContentError(error, isNewAccount) {
@@ -257,6 +491,8 @@
       clientRevision = 0;
       dirty = true;
     }
+    gameData.quests = gameData.quests || {};
+    pendingQuestEvents = Array.isArray(gameData.quests.pendingEvents) ? gameData.quests.pendingEvents : [];
     if (historyObject) {
       historyEntries = Array.isArray(historyObject.value?.entries) ? historyObject.value.entries : [];
       historyVersion = historyObject.version || "";
@@ -272,10 +508,12 @@
       await loadGameContent();
       setStatus("Loading cloud progress...", "syncing");
       await readCloudData();
+      if (dirty) await flushCloudSave();
       installGameChrome();
       updateUI();
       updateEquippedCharacterImage("equipped-image");
       showScreen("main-screen");
+      await refreshQuestProgress(true);
       recordHistory("login", {
         newAccount: Boolean(isNewAccount),
         contentVersion: GAME_CONTENT_VERSION
@@ -396,6 +634,7 @@
       dirty = false;
       retryCount = 0;
       setStatus(`Saved ${new Date().toLocaleTimeString()}`, "saved");
+      refreshQuestProgress(true);
       if (isManual) showToast("Game saved to Nakama!", true);
     } catch (error) {
       if (isVersionConflict(error)) {
@@ -456,6 +695,13 @@
       return;
     }
     client = new nakama.Client(config.serverKey, config.host, config.port, config.ssl);
+    window.renderQuestJourney = renderQuestJourney;
+    window.refreshQuestProgress = () => refreshQuestProgress(false);
+    window.claimQuestReward = claimQuestReward;
+    window.reportQuestEvent = queueQuestEvent;
+    window.equipItem = serverEquipItem;
+    window.executeUpgrade = serverUpgrade;
+    window.unlockDungeon = serverUnlockDungeon;
     installActionHistory();
     window.saveGame = function (isManual = false) {
       if (isManual) {

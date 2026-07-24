@@ -6,3 +6,4 @@ var TOWER_ENEMIES = {};
 var TOWER_REWARDS = [];
 var WIKI_LINKS = {};
 var GAME_CONTENT_VERSION = null;
+var QUEST_CHAPTERS = [];

@@ -131,12 +131,73 @@ CREATE TABLE game_tower_reward_bands (
   UNIQUE (max_floor)
 );
 
+CREATE TABLE game_quest_chapters (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  display_order SMALLINT NOT NULL UNIQUE CHECK (display_order > 0)
+);
+
+CREATE TABLE game_quests (
+  id TEXT PRIMARY KEY,
+  chapter_id TEXT NOT NULL REFERENCES game_quest_chapters(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  display_order SMALLINT NOT NULL CHECK (display_order > 0),
+  optional BOOLEAN NOT NULL DEFAULT FALSE,
+  UNIQUE (chapter_id, display_order)
+);
+
+CREATE TABLE game_quest_prerequisites (
+  quest_id TEXT NOT NULL REFERENCES game_quests(id) ON DELETE CASCADE,
+  prerequisite_quest_id TEXT NOT NULL REFERENCES game_quests(id) ON DELETE CASCADE,
+  PRIMARY KEY (quest_id, prerequisite_quest_id),
+  CHECK (quest_id <> prerequisite_quest_id)
+);
+
+CREATE TABLE game_quest_objectives (
+  quest_id TEXT NOT NULL REFERENCES game_quests(id) ON DELETE CASCADE,
+  position SMALLINT NOT NULL CHECK (position > 0),
+  objective_type TEXT NOT NULL CHECK (objective_type IN (
+    'equipped_character', 'equipped_equipment', 'own_character_count',
+    'own_equipment_count', 'own_character_rarity', 'own_equipment_rarity',
+    'character_upgrade_level', 'equipment_upgrade_level', 'total_upgrade_levels',
+    'currency_balance', 'unlocked_dungeon', 'unlocked_dungeon_count',
+    'tower_floor', 'dungeon_wins', 'tower_wins'
+  )),
+  target INTEGER NOT NULL CHECK (target > 0),
+  parameter TEXT,
+  description TEXT NOT NULL,
+  PRIMARY KEY (quest_id, position)
+);
+
+CREATE TABLE game_quest_rewards (
+  quest_id TEXT NOT NULL REFERENCES game_quests(id) ON DELETE CASCADE,
+  position SMALLINT NOT NULL CHECK (position > 0),
+  reward_type TEXT NOT NULL CHECK (reward_type IN (
+    'gold', 'soul_fragment', 'iron_bar', 'character', 'equipment', 'title'
+  )),
+  amount INTEGER NOT NULL DEFAULT 1 CHECK (amount > 0),
+  item_id TEXT,
+  title TEXT,
+  PRIMARY KEY (quest_id, position),
+  CHECK (
+    (reward_type = 'character' AND item_id IS NOT NULL AND title IS NULL) OR
+    (reward_type = 'equipment' AND item_id IS NOT NULL AND title IS NULL) OR
+    (reward_type = 'title' AND title IS NOT NULL AND item_id IS NULL) OR
+    (reward_type IN ('gold', 'soul_fragment', 'iron_bar') AND item_id IS NULL AND title IS NULL)
+  )
+);
+
 CREATE INDEX game_character_skills_character_idx ON game_character_skills(character_id);
 CREATE INDEX game_enemy_skills_enemy_idx ON game_enemy_skills(enemy_id);
 CREATE INDEX game_dungeon_enemies_enemy_idx ON game_dungeon_enemies(enemy_id);
 CREATE INDEX game_dungeons_boss_idx ON game_dungeons(boss_enemy_id);
+CREATE INDEX game_quests_chapter_idx ON game_quests(chapter_id);
+CREATE INDEX game_quest_prerequisites_dependency_idx ON game_quest_prerequisites(prerequisite_quest_id);
+CREATE INDEX game_quest_objectives_type_idx ON game_quest_objectives(objective_type);
 
-INSERT INTO game_content_meta (schema_version, content_version) VALUES (1, '2026-07-24.1');
+INSERT INTO game_content_meta (schema_version, content_version) VALUES (2, '2026-07-24.2');
 
 INSERT INTO game_characters VALUES ('c001', 'Nobita', 1, 'Nobita Nobi là một cậu bé học sinh tiểu học kém cỏi về mọi mặt nhưng lại có tài thiện xạ bẩm sinh.', 55, 5, 4, 5, 5, 5, 2, 1, 2, 2);
 INSERT INTO game_character_skills VALUES ('c001', 0, 'Ném Gạch', 0, 'Tấn công thường, gây 100% sát thương.', 1, 0, NULL, NULL, NULL, NULL);
@@ -1624,5 +1685,145 @@ INSERT INTO game_tower_reward_bands VALUES (81, 85, 51, 1, 8, 10, 0.5, 8, 10, 0.
 INSERT INTO game_tower_reward_bands VALUES (86, 90, 54, 1, 8, 10, 0.5, 8, 10, 0.5);
 INSERT INTO game_tower_reward_bands VALUES (91, 95, 57, 1, 8, 10, 0.5, 8, 10, 0.5);
 INSERT INTO game_tower_reward_bands VALUES (96, 100, 60, 1, 8, 10, 0.5, 8, 10, 0.5);
+
+INSERT INTO game_quest_chapters VALUES
+('awakening', 'Awakening', 'Take your first steps into the Manga Nexus.', 1),
+('cultivation', 'Cultivation', 'Strengthen your heroes and equipment.', 2),
+('wandering', 'Wandering Hero', 'Explore increasingly dangerous worlds.', 3),
+('tower', 'Hundred-Floor Trial', 'Climb the tower and overcome its guardians.', 4),
+('legacy', 'Immortal Legacy', 'Build a collection worthy of legend.', 5);
+
+INSERT INTO game_quests (id, chapter_id, name, description, display_order, optional) VALUES
+('awakening_01','awakening','A Hero Awakens','Equip your first character.',1,FALSE),
+('awakening_02','awakening','Tools of the Journey','Own one piece of equipment.',2,FALSE),
+('awakening_03','awakening','Ready for Battle','Equip a piece of equipment.',3,FALSE),
+('awakening_04','awakening','First Victory','Win one dungeon adventure.',4,FALSE),
+('awakening_05','awakening','A Wider World','Unlock two dungeons.',5,FALSE),
+('awakening_06','awakening','Gathering Strength','Own three characters.',6,FALSE),
+('awakening_07','awakening','Prepared Adventurer','Own three equipment items.',7,FALSE),
+('awakening_08','awakening','Awakened','Reach tower floor 5.',8,FALSE),
+('cultivation_01','cultivation','First Refinement','Raise a character to +1.',1,FALSE),
+('cultivation_02','cultivation','Tempered Steel','Raise equipment to +1.',2,FALSE),
+('cultivation_03','cultivation','Spirit Reserve','Hold 25 Soul Fragments.',3,FALSE),
+('cultivation_04','cultivation','Iron Reserve','Hold 25 Iron Bars.',4,FALSE),
+('cultivation_05','cultivation','Growing Power','Gain 10 total upgrade levels.',5,FALSE),
+('cultivation_06','cultivation','Seasoned Hero','Raise a character to +5.',6,FALSE),
+('cultivation_07','cultivation','Seasoned Gear','Raise equipment to +5.',7,FALSE),
+('cultivation_08','cultivation','Cultivator','Hold 500 gold.',8,FALSE),
+('wandering_01','wandering','On the Road','Win 5 dungeon adventures.',1,FALSE),
+('wandering_02','wandering','New Horizons','Unlock 5 dungeons.',2,FALSE),
+('wandering_03','wandering','Proven Wanderer','Win 15 dungeon adventures.',3,FALSE),
+('wandering_04','wandering','Distant Realms','Unlock 10 dungeons.',4,FALSE),
+('wandering_05','wandering','Rare Companion','Own a 3-star character.',5,FALSE),
+('wandering_06','wandering','Rare Relic','Own 3-star equipment.',6,FALSE),
+('wandering_07','wandering','World Walker','Unlock 18 dungeons.',7,FALSE),
+('wandering_08','wandering','Legendary Wanderer','Win 50 dungeon adventures.',8,FALSE),
+('tower_01','tower','The Trial Begins','Reach tower floor 5.',1,FALSE),
+('tower_02','tower','Ten Floors','Reach tower floor 10.',2,FALSE),
+('tower_03','tower','Twenty Floors','Reach tower floor 20.',3,FALSE),
+('tower_04','tower','Forty Floors','Reach tower floor 40.',4,FALSE),
+('tower_05','tower','Sixty Floors','Reach tower floor 60.',5,FALSE),
+('tower_06','tower','Eighty Floors','Reach tower floor 80.',6,FALSE),
+('tower_07','tower','Hundred Victories','Win 100 tower battles.',7,TRUE),
+('tower_08','tower','Tower Conqueror','Reach tower floor 100.',8,FALSE),
+('legacy_01','legacy','Collector','Own 15 characters.',1,FALSE),
+('legacy_02','legacy','Armory','Own 15 equipment items.',2,FALSE),
+('legacy_03','legacy','Peerless Hero','Raise a character to +9.',3,FALSE),
+('legacy_04','legacy','Peerless Relic','Raise equipment to +9.',4,FALSE),
+('legacy_05','legacy','Mythic Companion','Own a 5-star character.',5,FALSE),
+('legacy_06','legacy','Mythic Treasure','Own 5-star equipment.',6,FALSE),
+('legacy_07','legacy','Grand Collection','Own 50 characters and 50 equipment items.',7,FALSE),
+('legacy_08','legacy','Immortal Legacy','Gain 100 total upgrade levels.',8,FALSE);
+
+INSERT INTO game_quest_prerequisites
+SELECT q.id, p.id FROM game_quests q JOIN game_quests p
+  ON p.chapter_id = q.chapter_id AND p.display_order = q.display_order - 1
+WHERE q.display_order > 1 AND NOT q.optional AND NOT p.optional;
+INSERT INTO game_quest_prerequisites VALUES
+('cultivation_01','awakening_08'), ('wandering_01','cultivation_08'),
+('tower_01','wandering_08'), ('tower_08','tower_06'), ('legacy_01','tower_08');
+
+INSERT INTO game_quest_objectives VALUES
+('awakening_01',1,'equipped_character',1,NULL,'Equip a character'),
+('awakening_02',1,'own_equipment_count',1,NULL,'Own 1 equipment item'),
+('awakening_03',1,'equipped_equipment',1,NULL,'Equip an equipment item'),
+('awakening_04',1,'dungeon_wins',1,NULL,'Win 1 dungeon adventure'),
+('awakening_05',1,'unlocked_dungeon_count',2,NULL,'Unlock 2 dungeons'),
+('awakening_06',1,'own_character_count',3,NULL,'Own 3 characters'),
+('awakening_07',1,'own_equipment_count',3,NULL,'Own 3 equipment items'),
+('awakening_08',1,'tower_floor',5,NULL,'Reach tower floor 5'),
+('cultivation_01',1,'character_upgrade_level',1,NULL,'Raise a character to +1'),
+('cultivation_02',1,'equipment_upgrade_level',1,NULL,'Raise equipment to +1'),
+('cultivation_03',1,'currency_balance',25,'soulFragment','Hold 25 Soul Fragments'),
+('cultivation_04',1,'currency_balance',25,'ironBar','Hold 25 Iron Bars'),
+('cultivation_05',1,'total_upgrade_levels',10,NULL,'Gain 10 total upgrade levels'),
+('cultivation_06',1,'character_upgrade_level',5,NULL,'Raise a character to +5'),
+('cultivation_07',1,'equipment_upgrade_level',5,NULL,'Raise equipment to +5'),
+('cultivation_08',1,'currency_balance',500,'gold','Hold 500 gold'),
+('wandering_01',1,'dungeon_wins',5,NULL,'Win 5 dungeon adventures'),
+('wandering_02',1,'unlocked_dungeon_count',5,NULL,'Unlock 5 dungeons'),
+('wandering_03',1,'dungeon_wins',15,NULL,'Win 15 dungeon adventures'),
+('wandering_04',1,'unlocked_dungeon_count',10,NULL,'Unlock 10 dungeons'),
+('wandering_05',1,'own_character_rarity',1,'3','Own a 3-star character'),
+('wandering_06',1,'own_equipment_rarity',1,'3','Own 3-star equipment'),
+('wandering_07',1,'unlocked_dungeon_count',18,NULL,'Unlock 18 dungeons'),
+('wandering_08',1,'dungeon_wins',50,NULL,'Win 50 dungeon adventures'),
+('tower_01',1,'tower_floor',5,NULL,'Reach tower floor 5'),
+('tower_02',1,'tower_floor',10,NULL,'Reach tower floor 10'),
+('tower_03',1,'tower_floor',20,NULL,'Reach tower floor 20'),
+('tower_04',1,'tower_floor',40,NULL,'Reach tower floor 40'),
+('tower_05',1,'tower_floor',60,NULL,'Reach tower floor 60'),
+('tower_06',1,'tower_floor',80,NULL,'Reach tower floor 80'),
+('tower_07',1,'tower_wins',100,NULL,'Win 100 tower battles'),
+('tower_08',1,'tower_floor',100,NULL,'Reach tower floor 100'),
+('legacy_01',1,'own_character_count',15,NULL,'Own 15 characters'),
+('legacy_02',1,'own_equipment_count',15,NULL,'Own 15 equipment items'),
+('legacy_03',1,'character_upgrade_level',9,NULL,'Raise a character to +9'),
+('legacy_04',1,'equipment_upgrade_level',9,NULL,'Raise equipment to +9'),
+('legacy_05',1,'own_character_rarity',1,'5','Own a 5-star character'),
+('legacy_06',1,'own_equipment_rarity',1,'5','Own 5-star equipment'),
+('legacy_07',1,'own_character_count',50,NULL,'Own 50 characters'),
+('legacy_07',2,'own_equipment_count',50,NULL,'Own 50 equipment items'),
+('legacy_08',1,'total_upgrade_levels',100,NULL,'Gain 100 total upgrade levels');
+
+INSERT INTO game_quest_rewards VALUES
+('awakening_01',1,'gold',25,NULL,NULL), ('awakening_02',1,'iron_bar',10,NULL,NULL),
+('awakening_03',1,'gold',40,NULL,NULL), ('awakening_04',1,'character',1,'c002',NULL),
+('awakening_05',1,'gold',75,NULL,NULL), ('awakening_06',1,'soul_fragment',15,NULL,NULL),
+('awakening_07',1,'equipment',1,'e001',NULL), ('awakening_08',1,'title',1,NULL,'Awakened'),
+('cultivation_01',1,'soul_fragment',10,NULL,NULL), ('cultivation_02',1,'iron_bar',10,NULL,NULL),
+('cultivation_03',1,'gold',75,NULL,NULL), ('cultivation_04',1,'gold',75,NULL,NULL),
+('cultivation_05',1,'character',1,'c010',NULL), ('cultivation_06',1,'soul_fragment',30,NULL,NULL),
+('cultivation_07',1,'iron_bar',30,NULL,NULL), ('cultivation_08',1,'title',1,NULL,'Cultivator'),
+('wandering_01',1,'gold',100,NULL,NULL), ('wandering_02',1,'equipment',1,'e010',NULL),
+('wandering_03',1,'soul_fragment',25,NULL,NULL), ('wandering_04',1,'iron_bar',25,NULL,NULL),
+('wandering_05',1,'gold',200,NULL,NULL), ('wandering_06',1,'gold',200,NULL,NULL),
+('wandering_07',1,'character',1,'c050',NULL), ('wandering_08',1,'title',1,NULL,'World Walker'),
+('tower_01',1,'gold',100,NULL,NULL), ('tower_02',1,'soul_fragment',20,NULL,NULL),
+('tower_03',1,'iron_bar',20,NULL,NULL), ('tower_04',1,'character',1,'c060',NULL),
+('tower_05',1,'equipment',1,'e060',NULL), ('tower_06',1,'gold',500,NULL,NULL),
+('tower_07',1,'soul_fragment',50,NULL,NULL), ('tower_08',1,'title',1,NULL,'Tower Conqueror'),
+('legacy_01',1,'gold',300,NULL,NULL), ('legacy_02',1,'gold',300,NULL,NULL),
+('legacy_03',1,'soul_fragment',75,NULL,NULL), ('legacy_04',1,'iron_bar',75,NULL,NULL),
+('legacy_05',1,'character',1,'c100',NULL), ('legacy_06',1,'equipment',1,'e100',NULL),
+('legacy_07',1,'gold',1000,NULL,NULL), ('legacy_08',1,'title',1,NULL,'Immortal');
+
+DO $$
+BEGIN
+  IF (SELECT COUNT(*) FROM game_quest_chapters) <> 5 THEN RAISE EXCEPTION 'Expected 5 quest chapters'; END IF;
+  IF (SELECT COUNT(*) FROM game_quests) <> 40 THEN RAISE EXCEPTION 'Expected 40 quests'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM game_quest_rewards r
+    LEFT JOIN game_characters c ON r.reward_type = 'character' AND c.id = r.item_id
+    LEFT JOIN game_equipment e ON r.reward_type = 'equipment' AND e.id = r.item_id
+    WHERE (r.reward_type = 'character' AND c.id IS NULL)
+       OR (r.reward_type = 'equipment' AND e.id IS NULL)
+  ) THEN RAISE EXCEPTION 'Quest reward references an unknown item'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM game_quests q
+    WHERE NOT EXISTS (SELECT 1 FROM game_quest_objectives o WHERE o.quest_id = q.id)
+       OR NOT EXISTS (SELECT 1 FROM game_quest_rewards r WHERE r.quest_id = q.id)
+  ) THEN RAISE EXCEPTION 'Every quest must have objectives and rewards'; END IF;
+END $$;
 
 COMMIT;
