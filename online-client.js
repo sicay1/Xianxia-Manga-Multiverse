@@ -376,7 +376,7 @@
 
   async function claimQuestReward(questId) {
     try {
-      if (dirty) await flushCloudSave(true);
+      if (dirty) await flushCloudSave();
       if (dirty) throw new Error("Save pending progress before claiming the quest reward.");
       const result = rpcPayload(await client.rpc(session, "claim_quest_reward", { questId }));
       gameData = patchGameData(result.gameData);
@@ -533,8 +533,7 @@
       downloadButton.textContent = "Logout";
       downloadButton.addEventListener("click", logout);
     }
-    const saveButton = document.querySelector('button[onclick="saveGame(true)"]');
-    const container = saveButton?.parentElement?.parentElement;
+    const container = downloadButton?.parentElement?.parentElement;
     if (container && !document.getElementById("cloud-status")) {
       container.insertAdjacentHTML("afterbegin", `
         <div class="mb-3 flex items-center justify-between gap-3">
@@ -590,14 +589,14 @@
     return error?.status === 409 || error?.statusCode === 409 || error?.code === 10;
   }
 
-  async function flushCloudSave(isManual = false) {
-    if (!session || saving || conflict || (!dirty && !isManual)) return;
+  async function flushCloudSave() {
+    if (!session || saving || conflict || !dirty) return;
     saving = true;
     clearTimeout(retryTimer);
     setStatus("Saving to cloud...", "syncing");
     const historyToWrite = historyEntries.concat(
       pendingHistory,
-      createHistoryEntry("cloud_save", { manual: Boolean(isManual) })
+      createHistoryEntry("cloud_save")
     ).slice(-config.historyLimit);
     const nextRevision = clientRevision + 1;
     try {
@@ -635,7 +634,6 @@
       retryCount = 0;
       setStatus(`Saved ${new Date().toLocaleTimeString()}`, "saved");
       refreshQuestProgress(true);
-      if (isManual) showToast("Game saved to Nakama!", true);
     } catch (error) {
       if (isVersionConflict(error)) {
         conflict = true;
@@ -703,15 +701,15 @@
     window.executeUpgrade = serverUpgrade;
     window.unlockDungeon = serverUnlockDungeon;
     installActionHistory();
-    window.saveGame = function (isManual = false) {
-      if (isManual) {
-        flushCloudSave(true);
-      } else {
-        scheduleSave();
-      }
-    };
+    window.saveGame = () => scheduleSave();
     window.downloadGame = logout;
     window.addEventListener("online", () => dirty && flushCloudSave());
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden" && dirty) void flushCloudSave();
+    });
+    window.addEventListener("pagehide", () => {
+      if (dirty) void flushCloudSave();
+    });
     setInterval(() => dirty && flushCloudSave(), config.checkpointMs);
     if (!(await restoreSession())) renderLogin();
   }
