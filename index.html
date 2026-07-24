@@ -11,6 +11,7 @@
 	<script src="data/enemies.js"></script>
 	<script src="data/dungeons.js"></script>
 	<script src="data/tower.js"></script>
+	<script src="online-config.js"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 	<style>
 		body {
@@ -81,10 +82,6 @@
 </head>
 
 <body class="bg-gray-900 text-white">
-	<!-- Hidden file input for loading game -->
-	<input type="file" id="load-game-input" class="hidden" accept=".json" onchange="handleFileLoad(event)">
-
-
 	<!-- Login Screen -->
 	<div id="login-screen"
 		class="min-h-screen flex items-center justify-center bg-cover bg-center relative overflow-hidden"
@@ -103,20 +100,7 @@
 
 			<!-- Các nút -->
 			<div class="flex flex-col space-y-4 w-72 mx-auto">
-				<button onclick="startGame()"
-					class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-green-400/40 transition duration-300 transform hover:scale-105">
-					Start Game
-				</button>
-
-				<button onclick="loadGame()"
-					class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-blue-400/40 transition duration-300 transform hover:scale-105">
-					Load Game
-				</button>
-
-				<button onclick="document.getElementById('load-game-input').click()"
-					class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-gray-400/40 transition duration-300 transform hover:scale-105">
-					Upload Save File
-				</button>
+				<p class="text-gray-300">Connecting to account server...</p>
 
 				<button onclick="showModal('instructions-modal')"
 					class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-yellow-300/40 transition duration-300 transform hover:scale-105">
@@ -367,7 +351,7 @@
 						</button>
 						<button onclick="downloadGame()"
 							class="w-full bg-gradient-to-r from-blue-600 to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-blue-400/40 hover:shadow-[0_0_15px_rgba(120,180,255,0.6)]">
-							📥 Download Save File
+							Logout
 						</button>
 					</div>
 				</div>
@@ -796,8 +780,6 @@
 		let adventureInterval = null;
 		let adventureTimeout = null;
 		let stopAdventureFlag = false;
-		const SAVE_KEY = 'mangaNexusSaveData'; // Key for localStorage
-
 		const initialGameData = {
 			gold: 10,
 			soulFragment: 15,
@@ -863,68 +845,18 @@
 			showScreen('main-screen');
 		}
 
-		// --- UPDATED SAVE/LOAD ---
+		// The online adapter replaces this hook with Nakama persistence.
 		function saveGame(isManual = false) {
-			localStorage.setItem(SAVE_KEY, JSON.stringify(gameData));
-			if (isManual) showToast("Đã lưu game!", true);
+			if (isManual) showToast("Cloud service is still loading.", false);
 		}
 		function loadGame() {
-			const saved = localStorage.getItem(SAVE_KEY);
-			if (saved) {
-				try {
-					const parsed = JSON.parse(saved);
-					gameData = patchGameData(parsed);
-
-					updateUI();
-					updateEquippedCharacterImage("equipped-image");
-					showScreen('main-screen');
-					showToast("Đã tải game!", true);
-					return true;
-				} catch (e) {
-					console.error("Lỗi khi load file save:", e);
-					showToast("File save bị lỗi, không thể tải!", false);
-				}
-			}
 			return false;
 		}
 		function downloadGame() {
-			if (!gameData || Object.keys(gameData).length === 0) {
-				showToast("Không có dữ liệu để lưu!", false); return;
-			}
-			const dataStr = JSON.stringify(gameData, null, 2);
-			const blob = new Blob([dataStr], { type: "application/json" });
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `MangaNexus_save_${new Date().toISOString().slice(0, 10)}.json`;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
-			showToast("Đã tải file save!");
+			showToast("Save downloads are disabled for cloud accounts.", false);
 		}
 		function handleFileLoad(event) {
-			const file = event.target.files[0];
-			if (!file) return;
-			const reader = new FileReader();
-			reader.onload = function (e) {
-				try {
-					const loadedData = JSON.parse(e.target.result);
-					if (loadedData.gold !== undefined && loadedData.characters) {
-						gameData = patchGameData(loadedData);
-						updateUI();
-						updateEquippedCharacterImage("equipped-image");
-						showScreen('main-screen');
-						showToast("Đã tải game thành công!");
-					} else {
-						showToast("File save không hợp lệ!", false);
-					}
-				} catch (error) {
-					showToast("Lỗi khi đọc file save!", false);
-				}
-			};
-			reader.readAsText(file);
-			event.target.value = null;
+			showToast("Save imports are disabled for cloud accounts.", false);
 		}
 
 		// --- ADD GALLERY FUNCTIONS ---
@@ -963,21 +895,31 @@
 
 			// Wiki links cho mỗi dungeon
 			const wikiLinks = {
-				'd01': 'https://doraemon.fandom.com/wiki/Doraemon_Wiki',
-				'd02': 'https://crayonshinchan.fandom.com/wiki/Crayon_Shin-chan_Wiki',
-				'd03': 'https://www.detectiveconanworld.com/wiki/Main_Page',
-				'd04': 'https://reborn.fandom.com/wiki/Reborn_Wiki',
-				'd05': 'https://myheroacademia.fandom.com/wiki/My_Hero_Academia_Wiki',
-				'd06': 'https://fairytail.fandom.com/wiki/Fairy_Tail_Wiki',
+				'd01': 'https://dora-world.com/',
+				'd02': 'https://www.shinchan-app.jp/',
+				'd03': 'https://www.conan-portal.com/',
+				'd04': 'https://khreborn-anime.jp/',
+				'd05': 'https://heroaca.com/',
+				'd06': 'https://kodansha.us/series/fairy-tail/',
 				'd07': 'https://magi.fandom.com/wiki/Magi_Wiki',
 				'd08': 'https://chainsaw-man.fandom.com/wiki/Chainsaw_Man_Wiki',
 				'd09': 'https://naruto.fandom.com/wiki/Narutopedia',
 				'd10': 'https://onepiece.fandom.com/wiki/One_Piece_Wiki',
-				'd11': 'https://dragonball.fandom.com/wiki/Dragon_Ball_Wiki',
-				'd12': 'https://bleach.fandom.com/wiki/Bleach_Wiki',
-				'd13': 'https://hunterxhunter.fandom.com/wiki/Hunterpedia',
-				'd14': 'https://jujutsu-kaisen.fandom.com/wiki/Jujutsu_Kaisen_Wiki',
-				'd15': 'https://demonslayer.fandom.com/wiki/Kimetsu_no_Yaiba_Wiki'
+				'd11': 'https://mangaplus.shueisha.co.jp/titles/100004',
+				'd12': 'https://officialinuyasha.com/',
+				'd13': 'https://jujutsu-kaisen.fandom.com/wiki/Jujutsu_Kaisen_Wiki',
+				'd14': 'https://en.dragon-ball-official.com/',
+				'd15': 'https://onepunchmanofficial.com/',
+				'd16': 'https://aot-portal.com/en/',
+				'd17': 'https://kurumadapro.com/',
+				'd18': 'https://www.viz.com/fate-stay-night',
+				'd19': 'https://catalog.coamix.co.jp/record-of-ragnarok/?viewer=open',
+				'd20': 'https://chibimaru.tv/',
+				'd21': 'https://www.viz.com/slam-dunk',
+				'd22': 'https://re-zero-anime.jp/',
+				'd23': 'https://demonslayer-anime.com/risshihen/comic/',
+				'd24': 'https://yenpress.com/series/overlord-manga',
+				'd25': 'https://sakamotodays.jp/',
 			};
 
 			// Nhóm items theo dungeon
@@ -2244,24 +2186,11 @@
 
 		// --- INITIALIZATION ---
 		window.onload = () => {
-			const savedGame = localStorage.getItem('mangaNexusSave');
-			if (savedGame) {
-				try {
-					gameData = JSON.parse(savedGame);
-					showToast("Đã tải dữ liệu cũ. Hãy lưu lại bằng file!", true);
-					localStorage.removeItem('mangaNexusSave');
-				} catch (e) {
-					gameData = JSON.parse(JSON.stringify(initialGameData));
-				}
-			} else {
-				gameData = JSON.parse(JSON.stringify(initialGameData));
-			}
-
-			updateUI();
-			updateEquippedCharacterImage("equipped-image"); // ← thêm dòng này để hiện ảnh ngay khi vào game
-			showScreen(savedGame ? 'main-screen' : 'login-screen');
+			gameData = JSON.parse(JSON.stringify(initialGameData));
+			showScreen('login-screen');
 		};
 	</script>
+	<script type="module" src="online-loader.js"></script>
 </body>
 
 </html>

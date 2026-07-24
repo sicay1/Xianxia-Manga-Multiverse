@@ -1,113 +1,109 @@
-**URL:** https://manga-multiverse.netlify.app/  
+# Xianxia Manga Multiverse
 
----
+A browser game with username/password accounts and cloud saves backed by
+[Nakama](https://heroiclabs.com/nakama/) and PostgreSQL.
 
-## 1. Framework & Technologies Used
+## Local development
 
-### Frontend Framework
-- **Tailwind CSS** (via CDN): `https://cdn.tailwindcss.com`
-- **Font Awesome 6.4.2** (via CDN): Font icons
+Requirements:
 
-### Core Technologies
-- **Pure Vanilla JavaScript** - No frontend framework
-- **HTML5** - Standard markup
-- **CSS3** - Custom animations and styling
+- Docker Desktop (or Docker Engine with Docker Compose)
+- A browser with internet access for the Tailwind, Font Awesome, and Nakama JS CDNs
 
-### Local Storage
-```javascript
-const SAVE_KEY = 'mangaMultiverseSaveData';
-localStorage.setItem(SAVE_KEY, JSON.stringify(gameData));
+Create your local environment file:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-### Architecture
-- **Single Page Application (SPA)**
-- **Component-based structure** using JavaScript functions
-- **No build tools required** - runs directly in browser
-- **Static hosting** on Netlify
+Change every `replace-with-...` value in `.env`. The
+`NAKAMA_SERVER_KEY` must match `serverKey` in `online-config.js`; the provided
+`manga-nexus-local` value is suitable for local development because a Nakama
+client key is necessarily available to the browser.
 
----
+Start the stack:
 
-## 2. Commands to Clone
-```bash
-# Create project structure
-mkdir manga-multiverse-clone
-cd manga-multiverse-clone
-mkdir data
-
-# Download files
-curl -o index.html https://manga-multiverse.netlify.app/
-curl -o data/characters.js https://manga-multiverse.netlify.app/data/characters.js
-curl -o data/equips.js https://manga-multiverse.netlify.app/data/equips.js
-curl -o data/enemies.js https://manga-multiverse.netlify.app/data/enemies.js
-curl -o data/dungeons.js https://manga-multiverse.netlify.app/data/dungeons.js
-curl -o data/tower.js https://manga-multiverse.netlify.app/data/tower.js
-
-# Open in browser
-open index.html
+```sh
+docker compose up --build
 ```
 
-## 3. What You Can Learn From This Game
+Services:
 
-#### JavaScript Concepts
-- ✅ Object-oriented data structures
-- ✅ LocalStorage API
-- ✅ File reading/writing (JSON)
-- ✅ Array manipulation
-- ✅ Object destructuring
-- ✅ Event handling
-- ✅ DOM manipulation
-- ✅ Modal management
-- ✅ State management patterns
+- Game: http://localhost:8080
+- Nakama API: http://localhost:7350
+- Nakama console: http://localhost:7351
+- Console login: values from `NAKAMA_CONSOLE_USERNAME` and
+  `NAKAMA_CONSOLE_PASSWORD` in `.env`
 
-#### Game Development Concepts
-- ✅ Turn-based combat systems
-- ✅ Character stat calculations
-- ✅ Damage formulas
-- ✅ Gacha/loot systems
-- ✅ Progress tracking
-- ✅ Save/load systems
-- ✅ Collection mechanics
+The first start runs Nakama's PostgreSQL migrations automatically. Use
+`docker compose logs -f nakama` to inspect server startup and requests.
 
-#### CSS/UI Concepts
-- ✅ Tailwind CSS utility classes
-- ✅ CSS animations
-- ✅ Responsive design
-- ✅ Modal overlays
-- ✅ Card-based layouts
-- ✅ Toast notifications
+Stop the containers while keeping all accounts and saves:
 
-#### Software Engineering
-- ✅ Code organization
-- ✅ Data-driven design
-- ✅ Separation of concerns
-- ✅ Configuration files
-- ✅ No-backend architecture
+```sh
+docker compose down
+```
 
+Delete all accounts, saves, history, and PostgreSQL data:
 
-## 4. Technical Advantages
+```sh
+docker compose down --volumes
+```
 
-### Why This Architecture Works
+The volume deletion is irreversible.
 
-#### Pros
-✅ **Zero hosting costs** (static files)  
-✅ **No server maintenance**  
-✅ **Instant loading** (no API calls)  
-✅ **Offline capable** (after first load)  
-✅ **Easy to modify** (no build process)  
-✅ **Cross-platform** (runs anywhere)  
-✅ **Privacy-friendly** (no data collection)  
-✅ **Simple deployment** (drag & drop)
+## Accounts and saving
 
-#### Cons
-❌ Can't prevent cheating (client-side only)  
-❌ No cloud sync without backend  
-❌ Save files can be lost (browser cache clear)  
-❌ Limited to single player  
-❌ No real-time updates  
-❌ Large HTML file (maintenance)
+- Usernames are normalized to lowercase and must contain 3–20 letters,
+  numbers, or underscores.
+- Passwords must be at least 8 characters.
+- Players are not asked for email. Registration uses an internal
+  `<username>@accounts.invalid` identifier, then future authentication uses
+  username and password.
+- There is no email verification or password recovery.
+- New accounts always start fresh; old local-storage and uploaded save files
+  are not imported.
+- Progress saves after state-changing actions, after a short debounce, and at
+  30-second checkpoints while changes are pending.
+- The browser remembers and refreshes the Nakama session. Logout clears it.
+- A conflicting write from another tab or device stops automatic saving and
+  asks the player to reload instead of overwriting newer progress.
 
-## 5. Resources
+Nakama stores two private, owner-readable objects:
 
-- **Tailwind CSS Docs**: https://tailwindcss.com/docs
-- **LocalStorage API**: https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
-- **File API**: https://developer.mozilla.org/en-US/docs/Web/API/File_API
+- `player_state/main`: the current `gameData`, schema version, save time, and
+  client revision.
+- `player_history/recent`: the latest 200 key account/game events.
+
+Combat and reward calculation remain in the browser in this version. Cloud
+saves provide accounts and synchronization, not anti-cheat protection.
+
+## Configuration and deployment
+
+`online-config.js` controls the browser connection:
+
+```js
+window.MANGA_NAKAMA_CONFIG = {
+  host: "127.0.0.1",
+  port: "7350",
+  serverKey: "manga-nexus-local",
+  ssl: false
+};
+```
+
+The checked-in configuration derives the host and SSL setting from the page,
+which is convenient locally. Before using GitHub Pages, deploy Nakama behind a
+public HTTPS endpoint and update this file with that host, port `443`, and
+`ssl: true`. An HTTPS GitHub Pages game cannot use a private, plain-HTTP Nakama
+server.
+
+Do not commit `.env`; it is ignored by Git.
+The local Nginx configuration also blocks all dotfiles, including `.env` and
+`.git`, from HTTP access.
+
+## Static game data
+
+Characters, equipment, enemies, dungeons, and tower definitions remain in the
+`data/` directory. The main game implementation remains in `index.html`, while
+`online-client.js` owns authentication, cloud persistence, retries, conflict
+handling, and event history.
