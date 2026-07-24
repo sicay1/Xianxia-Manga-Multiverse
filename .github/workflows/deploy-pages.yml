@@ -27,10 +27,17 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Prepare public game files
+        run: |
+          mkdir _site
+          cp index.html CHANGELOG.md content-bootstrap.js online-config.js online-loader.js online-client.js _site/
+          cp -R images _site/
+          touch _site/.nojekyll
+
       - name: Upload game files
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment

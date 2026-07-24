@@ -179,6 +179,62 @@
     }
   }
 
+  function validateGameContent(content) {
+    const expected = {
+      characters: 114,
+      equipment: 114,
+      enemies: 140,
+      dungeons: 24,
+      towerEnemies: 100
+    };
+    if (!content || !Array.isArray(content.towerRewards) || content.towerRewards.length !== 20) {
+      throw new Error("The server returned incomplete tower reward data.");
+    }
+    for (const [name, count] of Object.entries(expected)) {
+      if (!content[name] || Object.keys(content[name]).length !== count) {
+        throw new Error(`The server returned incomplete ${name} data.`);
+      }
+    }
+    if (!content.characters.c001 || !content.wikiLinks) {
+      throw new Error("The server content is missing required starter data.");
+    }
+  }
+
+  async function loadGameContent() {
+    const response = await client.rpc(session, "get_game_content", {});
+    const raw = response?.payload ?? response;
+    const content = typeof raw === "string" ? JSON.parse(raw) : raw;
+    validateGameContent(content);
+    CHARACTERS_DB = content.characters;
+    EQUIPMENT_DB = content.equipment;
+    ENEMIES_DB = content.enemies;
+    DUNGEONS_DB = content.dungeons;
+    TOWER_ENEMIES = content.towerEnemies;
+    TOWER_REWARDS = content.towerRewards;
+    WIKI_LINKS = content.wikiLinks;
+    GAME_CONTENT_VERSION = content.version;
+  }
+
+  async function renderContentError(error, isNewAccount) {
+    const message = await parseError(error);
+    showScreen("login-screen");
+    const screen = document.getElementById("login-screen");
+    screen.innerHTML = `
+      <div class="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm"></div>
+      <div class="relative w-full max-w-md p-7 bg-black bg-opacity-85 rounded-2xl shadow-2xl text-center">
+        <h1 class="text-3xl font-bold mb-3 text-red-300">Game content unavailable</h1>
+        <p class="text-gray-300 mb-2">Definitions could not be loaded from Nakama.</p>
+        <p id="content-error-message" class="text-sm text-red-200 mb-6 break-words"></p>
+        <div class="grid grid-cols-2 gap-3">
+          <button id="content-retry" class="bg-blue-600 hover:bg-blue-700 font-bold py-2 rounded-lg">Retry</button>
+          <button id="content-logout" class="bg-gray-600 hover:bg-gray-700 font-bold py-2 rounded-lg">Logout</button>
+        </div>
+      </div>`;
+    document.getElementById("content-error-message").textContent = message;
+    document.getElementById("content-retry").addEventListener("click", () => enterGame(isNewAccount));
+    document.getElementById("content-logout").addEventListener("click", logout);
+  }
+
   async function readCloudData() {
     const userId = currentUserId();
     const result = await client.readStorageObjects(session, {
@@ -211,14 +267,25 @@
   }
 
   async function enterGame(isNewAccount) {
-    setStatus("Loading cloud progress...", "syncing");
-    await readCloudData();
-    installGameChrome();
-    updateUI();
-    updateEquippedCharacterImage("equipped-image");
-    showScreen("main-screen");
-    recordHistory("login", { newAccount: Boolean(isNewAccount) });
-    scheduleSave(true);
+    try {
+      setStatus("Loading game definitions...", "syncing");
+      await loadGameContent();
+      setStatus("Loading cloud progress...", "syncing");
+      await readCloudData();
+      installGameChrome();
+      updateUI();
+      updateEquippedCharacterImage("equipped-image");
+      showScreen("main-screen");
+      recordHistory("login", {
+        newAccount: Boolean(isNewAccount),
+        contentVersion: GAME_CONTENT_VERSION
+      });
+      scheduleSave(true);
+      return true;
+    } catch (error) {
+      await renderContentError(error, isNewAccount);
+      return false;
+    }
   }
 
   function installGameChrome() {

@@ -7,7 +7,7 @@ A browser game with username/password accounts and cloud saves backed by
 
 Requirements:
 
-- Docker Desktop (or Docker Engine with Docker Compose)
+- Podman Desktop with Podman Compose (Docker Compose is also compatible)
 - A browser with internet access for the Tailwind, Font Awesome, and Nakama JS CDNs
 
 Create your local environment file:
@@ -21,10 +21,12 @@ Change every `replace-with-...` value in `.env`. The
 `manga-nexus-local` value is suitable for local development because a Nakama
 client key is necessarily available to the browser.
 
-Start the stack:
+For this database-content migration, reset the existing volume once. This
+irreversibly deletes existing game accounts, saves, and history:
 
 ```sh
-docker compose up --build
+podman compose down --volumes
+podman compose up
 ```
 
 Services:
@@ -35,19 +37,20 @@ Services:
 - Console login: values from `NAKAMA_CONSOLE_USERNAME` and
   `NAKAMA_CONSOLE_PASSWORD` in `.env`
 
-The first start runs Nakama's PostgreSQL migrations automatically. Use
-`docker compose logs -f nakama` to inspect server startup and requests.
+The first start initializes the normalized `game_*` tables from `db/init.sql`,
+runs Nakama's PostgreSQL migrations, and loads the authenticated
+`get_game_content` RPC. Use `podman compose logs -f nakama` to inspect startup.
 
 Stop the containers while keeping all accounts and saves:
 
 ```sh
-docker compose down
+podman compose down
 ```
 
 Delete all accounts, saves, history, and PostgreSQL data:
 
 ```sh
-docker compose down --volumes
+podman compose down --volumes
 ```
 
 The volume deletion is irreversible.
@@ -101,9 +104,25 @@ Do not commit `.env`; it is ignored by Git.
 The local Nginx configuration also blocks all dotfiles, including `.env` and
 `.git`, from HTTP access.
 
-## Static game data
+## Database-backed game content
 
-Characters, equipment, enemies, dungeons, and tower definitions remain in the
-`data/` directory. The main game implementation remains in `index.html`, while
-`online-client.js` owns authentication, cloud persistence, retries, conflict
+Characters, character skills, equipment, enemies, enemy skills, dungeons,
+encounter relationships, dungeon rewards, wiki links, tower floors, tower
+skills, and tower reward bands are normalized in PostgreSQL by `db/init.sql`.
+The old browser dataset files have been removed.
+
+The legacy `d25` wiki URL was intentionally omitted because there is no `d25`
+dungeon definition; the 24 valid dungeons each have one wiki URL.
+
+After account authentication, `online-client.js` calls the authenticated
+Nakama RPC `get_game_content`. Gameplay remains blocked until the full,
+versioned definition bundle is available. PostgreSQL is not exposed to the
+browser.
+
+PostgreSQL initialization scripts run only when the database volume is empty.
+Changing `db/init.sql` later requires another destructive
+`podman compose down --volumes` followed by `podman compose up`.
+
+The main game implementation remains in `index.html`. `online-client.js` owns
+definition loading, authentication, cloud persistence, retries, conflict
 handling, and event history.

@@ -6,11 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Manga Nexus</title>
 	<script src="https://cdn.tailwindcss.com"></script>
-	<script src="data/characters.js"></script>
-	<script src="data/equips.js"></script>
-	<script src="data/enemies.js"></script>
-	<script src="data/dungeons.js"></script>
-	<script src="data/tower.js"></script>
+	<script src="content-bootstrap.js"></script>
 	<script src="online-config.js"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 	<style>
@@ -893,35 +889,6 @@
 			const owned = type === 'character' ? gameData.characters : gameData.equipment;
 			const container = document.getElementById(`gallery-${type === 'character' ? 'characters' : 'equipment'}`);
 
-			// Wiki links cho mỗi dungeon
-			const wikiLinks = {
-				'd01': 'https://dora-world.com/',
-				'd02': 'https://www.shinchan-app.jp/',
-				'd03': 'https://www.conan-portal.com/',
-				'd04': 'https://khreborn-anime.jp/',
-				'd05': 'https://heroaca.com/',
-				'd06': 'https://kodansha.us/series/fairy-tail/',
-				'd07': 'https://magi.fandom.com/wiki/Magi_Wiki',
-				'd08': 'https://chainsaw-man.fandom.com/wiki/Chainsaw_Man_Wiki',
-				'd09': 'https://naruto.fandom.com/wiki/Narutopedia',
-				'd10': 'https://onepiece.fandom.com/wiki/One_Piece_Wiki',
-				'd11': 'https://mangaplus.shueisha.co.jp/titles/100004',
-				'd12': 'https://officialinuyasha.com/',
-				'd13': 'https://jujutsu-kaisen.fandom.com/wiki/Jujutsu_Kaisen_Wiki',
-				'd14': 'https://en.dragon-ball-official.com/',
-				'd15': 'https://onepunchmanofficial.com/',
-				'd16': 'https://aot-portal.com/en/',
-				'd17': 'https://kurumadapro.com/',
-				'd18': 'https://www.viz.com/fate-stay-night',
-				'd19': 'https://catalog.coamix.co.jp/record-of-ragnarok/?viewer=open',
-				'd20': 'https://chibimaru.tv/',
-				'd21': 'https://www.viz.com/slam-dunk',
-				'd22': 'https://re-zero-anime.jp/',
-				'd23': 'https://demonslayer-anime.com/risshihen/comic/',
-				'd24': 'https://yenpress.com/series/overlord-manga',
-				'd25': 'https://sakamotodays.jp/',
-			};
-
 			// Nhóm items theo dungeon
 			const itemsByDungeon = {};
 
@@ -956,7 +923,7 @@
 			// Render theo nhóm dungeon
 			container.innerHTML = sortedDungeons.map(([dungeonId, dungeonData]) => {
 				const rarityColor = getRarityClass(dungeonData.rarity);
-				const wikiLink = wikiLinks[dungeonId] || '#';
+				const wikiLink = WIKI_LINKS[dungeonId] || '#';
 				const stars = getStars(dungeonData.rarity);
 
 				// Đếm số items đã có
