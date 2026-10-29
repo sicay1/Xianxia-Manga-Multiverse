@@ -189,6 +189,103 @@ CREATE TABLE game_quest_rewards (
   )
 );
 
+CREATE TABLE game_character_translations (
+  character_id TEXT NOT NULL REFERENCES game_characters(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  PRIMARY KEY (character_id, locale)
+);
+
+CREATE TABLE game_character_skill_translations (
+  character_id TEXT NOT NULL,
+  position SMALLINT NOT NULL,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  PRIMARY KEY (character_id, position, locale),
+  FOREIGN KEY (character_id, position) REFERENCES game_character_skills(character_id, position) ON DELETE CASCADE
+);
+
+CREATE TABLE game_equipment_translations (
+  equipment_id TEXT NOT NULL REFERENCES game_equipment(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  PRIMARY KEY (equipment_id, locale)
+);
+
+CREATE TABLE game_enemy_translations (
+  enemy_id TEXT NOT NULL REFERENCES game_enemies(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  PRIMARY KEY (enemy_id, locale)
+);
+
+CREATE TABLE game_enemy_skill_translations (
+  enemy_id TEXT NOT NULL,
+  position SMALLINT NOT NULL,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  PRIMARY KEY (enemy_id, position, locale),
+  FOREIGN KEY (enemy_id, position) REFERENCES game_enemy_skills(enemy_id, position) ON DELETE CASCADE
+);
+
+CREATE TABLE game_dungeon_translations (
+  dungeon_id TEXT NOT NULL REFERENCES game_dungeons(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  PRIMARY KEY (dungeon_id, locale)
+);
+
+CREATE TABLE game_tower_floor_translations (
+  floor_number INTEGER NOT NULL REFERENCES game_tower_floors(floor_number) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  PRIMARY KEY (floor_number, locale)
+);
+
+CREATE TABLE game_tower_skill_translations (
+  floor_number INTEGER NOT NULL,
+  position SMALLINT NOT NULL,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  PRIMARY KEY (floor_number, position, locale),
+  FOREIGN KEY (floor_number, position) REFERENCES game_tower_skills(floor_number, position) ON DELETE CASCADE
+);
+
+CREATE TABLE game_quest_chapter_translations (
+  chapter_id TEXT NOT NULL REFERENCES game_quest_chapters(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  PRIMARY KEY (chapter_id, locale)
+);
+
+CREATE TABLE game_quest_translations (
+  quest_id TEXT NOT NULL REFERENCES game_quests(id) ON DELETE CASCADE,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  PRIMARY KEY (quest_id, locale)
+);
+
+CREATE TABLE game_quest_objective_translations (
+  quest_id TEXT NOT NULL,
+  position SMALLINT NOT NULL,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  description TEXT NOT NULL,
+  PRIMARY KEY (quest_id, position, locale),
+  FOREIGN KEY (quest_id, position) REFERENCES game_quest_objectives(quest_id, position) ON DELETE CASCADE
+);
+
+CREATE TABLE game_title_translations (
+  title_key TEXT NOT NULL,
+  locale TEXT NOT NULL CHECK (locale IN ('vi', 'en')),
+  display_name TEXT NOT NULL,
+  PRIMARY KEY (title_key, locale)
+);
+
 CREATE INDEX game_character_skills_character_idx ON game_character_skills(character_id);
 CREATE INDEX game_enemy_skills_enemy_idx ON game_enemy_skills(enemy_id);
 CREATE INDEX game_dungeon_enemies_enemy_idx ON game_dungeon_enemies(enemy_id);
@@ -196,8 +293,13 @@ CREATE INDEX game_dungeons_boss_idx ON game_dungeons(boss_enemy_id);
 CREATE INDEX game_quests_chapter_idx ON game_quests(chapter_id);
 CREATE INDEX game_quest_prerequisites_dependency_idx ON game_quest_prerequisites(prerequisite_quest_id);
 CREATE INDEX game_quest_objectives_type_idx ON game_quest_objectives(objective_type);
+CREATE INDEX game_character_translations_locale_idx ON game_character_translations(locale);
+CREATE INDEX game_equipment_translations_locale_idx ON game_equipment_translations(locale);
+CREATE INDEX game_enemy_translations_locale_idx ON game_enemy_translations(locale);
+CREATE INDEX game_dungeon_translations_locale_idx ON game_dungeon_translations(locale);
+CREATE INDEX game_quest_translations_locale_idx ON game_quest_translations(locale);
 
-INSERT INTO game_content_meta (schema_version, content_version) VALUES (2, '2026-07-24.2');
+INSERT INTO game_content_meta (schema_version, content_version) VALUES (3, '2026-07-25.1');
 
 INSERT INTO game_characters VALUES ('c001', 'Nobita', 1, 'Nobita Nobi là một cậu bé học sinh tiểu học kém cỏi về mọi mặt nhưng lại có tài thiện xạ bẩm sinh.', 55, 5, 4, 5, 5, 5, 2, 1, 2, 2);
 INSERT INTO game_character_skills VALUES ('c001', 0, 'Ném Gạch', 0, 'Tấn công thường, gây 100% sát thương.', 1, 0, NULL, NULL, NULL, NULL);
@@ -1808,10 +1910,138 @@ INSERT INTO game_quest_rewards VALUES
 ('legacy_05',1,'character',1,'c100',NULL), ('legacy_06',1,'equipment',1,'e100',NULL),
 ('legacy_07',1,'gold',1000,NULL,NULL), ('legacy_08',1,'title',1,NULL,'Immortal');
 
+-- Localized content. Stable entity IDs and gameplay values remain in the base tables.
+INSERT INTO game_character_translations
+SELECT id, 'vi', name, description FROM game_characters;
+INSERT INTO game_character_translations
+SELECT id, 'en', name, 'A hero in the Manga Nexus: ' || name || '.' FROM game_characters;
+
+INSERT INTO game_character_skill_translations
+SELECT character_id, position, 'vi', name, description FROM game_character_skills;
+INSERT INTO game_character_skill_translations
+SELECT character_id, position, 'en', 'Skill ' || (position + 1),
+  CASE
+    WHEN effect_type = 'buff' THEN 'Temporarily strengthens the hero during combat.'
+    WHEN effect_type = 'debuff' THEN 'Temporarily weakens the opponent during combat.'
+    ELSE 'Deals damage to the opponent during combat.'
+  END
+FROM game_character_skills;
+
+INSERT INTO game_equipment_translations
+SELECT id, 'vi', name, description FROM game_equipment;
+INSERT INTO game_equipment_translations
+SELECT id, 'en', name,
+  CASE WHEN description = '' THEN 'Equipment used by heroes in the Manga Nexus.'
+       ELSE 'A special piece of equipment from the Manga Nexus.' END
+FROM game_equipment;
+
+INSERT INTO game_enemy_translations
+SELECT id, 'vi', name FROM game_enemies;
+INSERT INTO game_enemy_translations
+SELECT id, 'en', name FROM game_enemies;
+
+INSERT INTO game_enemy_skill_translations
+SELECT enemy_id, position, 'vi', name FROM game_enemy_skills;
+INSERT INTO game_enemy_skill_translations
+SELECT enemy_id, position, 'en', 'Enemy Attack ' || (position + 1) FROM game_enemy_skills;
+
+INSERT INTO game_dungeon_translations
+SELECT id, 'vi', name FROM game_dungeons;
+INSERT INTO game_dungeon_translations
+SELECT id, 'en', 'World Gate ' || (display_order + 1) FROM game_dungeons;
+
+INSERT INTO game_tower_floor_translations
+SELECT floor_number, 'vi', name FROM game_tower_floors;
+INSERT INTO game_tower_floor_translations
+SELECT floor_number, 'en', 'Floor ' || floor_number || ' Guardian' FROM game_tower_floors;
+
+INSERT INTO game_tower_skill_translations
+SELECT floor_number, position, 'vi', name FROM game_tower_skills;
+INSERT INTO game_tower_skill_translations
+SELECT floor_number, position, 'en', 'Tower Attack ' || (position + 1) FROM game_tower_skills;
+
+INSERT INTO game_quest_chapter_translations VALUES
+('awakening','en','Awakening','Take your first steps into the Manga Nexus.'),
+('cultivation','en','Cultivation','Strengthen your heroes and equipment.'),
+('wandering','en','Wandering Hero','Explore increasingly dangerous worlds.'),
+('tower','en','Hundred-Floor Trial','Climb the tower and overcome its guardians.'),
+('legacy','en','Immortal Legacy','Build a collection worthy of legend.'),
+('awakening','vi','Thức Tỉnh','Bắt đầu những bước chân đầu tiên trong Manga Nexus.'),
+('cultivation','vi','Tu Luyện','Tăng cường sức mạnh cho nhân vật và trang bị.'),
+('wandering','vi','Lãng Khách','Khám phá những thế giới ngày càng nguy hiểm.'),
+('tower','vi','Thử Thách Trăm Tầng','Chinh phục tòa tháp và đánh bại các hộ vệ.'),
+('legacy','vi','Di Sản Bất Diệt','Xây dựng bộ sưu tập xứng tầm huyền thoại.');
+
+INSERT INTO game_quest_translations
+SELECT id, 'en', name, description FROM game_quests;
+INSERT INTO game_quest_translations
+SELECT id, 'vi',
+  CASE chapter_id
+    WHEN 'awakening' THEN 'Thức Tỉnh ' || display_order
+    WHEN 'cultivation' THEN 'Tu Luyện ' || display_order
+    WHEN 'wandering' THEN 'Lãng Khách ' || display_order
+    WHEN 'tower' THEN 'Thử Thách Tầng ' || display_order
+    ELSE 'Di Sản ' || display_order
+  END,
+  'Hoàn thành mục tiêu để tiếp tục hành trình và nhận phần thưởng.'
+FROM game_quests;
+
+INSERT INTO game_quest_objective_translations
+SELECT quest_id, position, 'en', description FROM game_quest_objectives;
+INSERT INTO game_quest_objective_translations
+SELECT quest_id, position, 'vi',
+  CASE objective_type
+    WHEN 'equipped_character' THEN 'Trang bị một nhân vật'
+    WHEN 'equipped_equipment' THEN 'Trang bị một vật phẩm'
+    WHEN 'own_character_count' THEN 'Sở hữu ' || target || ' nhân vật'
+    WHEN 'own_equipment_count' THEN 'Sở hữu ' || target || ' trang bị'
+    WHEN 'own_character_rarity' THEN 'Sở hữu nhân vật từ ' || parameter || ' sao'
+    WHEN 'own_equipment_rarity' THEN 'Sở hữu trang bị từ ' || parameter || ' sao'
+    WHEN 'character_upgrade_level' THEN 'Cường hóa một nhân vật lên +' || target
+    WHEN 'equipment_upgrade_level' THEN 'Cường hóa một trang bị lên +' || target
+    WHEN 'total_upgrade_levels' THEN 'Đạt tổng cộng ' || target || ' cấp cường hóa'
+    WHEN 'currency_balance' THEN 'Tích lũy ' || target || ' ' ||
+      CASE parameter WHEN 'gold' THEN 'vàng' WHEN 'soulFragment' THEN 'Mảnh Linh Hồn' ELSE 'Thỏi Sắt' END
+    WHEN 'unlocked_dungeon' THEN 'Mở khóa cổng thế giới ' || parameter
+    WHEN 'unlocked_dungeon_count' THEN 'Mở khóa ' || target || ' cổng thế giới'
+    WHEN 'tower_floor' THEN 'Đạt tầng ' || target || ' của tòa tháp'
+    WHEN 'dungeon_wins' THEN 'Thắng ' || target || ' lần phiêu lưu'
+    WHEN 'tower_wins' THEN 'Thắng ' || target || ' trận trong tòa tháp'
+    ELSE description
+  END
+FROM game_quest_objectives;
+
+INSERT INTO game_title_translations VALUES
+('Awakened','en','Awakened'), ('Awakened','vi','Người Thức Tỉnh'),
+('Cultivator','en','Cultivator'), ('Cultivator','vi','Tu Luyện Giả'),
+('World Walker','en','World Walker'), ('World Walker','vi','Lữ Khách Thế Giới'),
+('Tower Conqueror','en','Tower Conqueror'), ('Tower Conqueror','vi','Kẻ Chinh Phục Tòa Tháp'),
+('Immortal','en','Immortal'), ('Immortal','vi','Bất Diệt');
+
 DO $$
 BEGIN
   IF (SELECT COUNT(*) FROM game_quest_chapters) <> 5 THEN RAISE EXCEPTION 'Expected 5 quest chapters'; END IF;
   IF (SELECT COUNT(*) FROM game_quests) <> 40 THEN RAISE EXCEPTION 'Expected 40 quests'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM (VALUES ('vi'), ('en')) locales(locale)
+    WHERE (SELECT COUNT(*) FROM game_character_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_characters)
+       OR (SELECT COUNT(*) FROM game_character_skill_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_character_skills)
+       OR (SELECT COUNT(*) FROM game_equipment_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_equipment)
+       OR (SELECT COUNT(*) FROM game_enemy_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_enemies)
+       OR (SELECT COUNT(*) FROM game_enemy_skill_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_enemy_skills)
+       OR (SELECT COUNT(*) FROM game_dungeon_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_dungeons)
+       OR (SELECT COUNT(*) FROM game_tower_floor_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_tower_floors)
+       OR (SELECT COUNT(*) FROM game_tower_skill_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_tower_skills)
+       OR (SELECT COUNT(*) FROM game_quest_chapter_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_quest_chapters)
+       OR (SELECT COUNT(*) FROM game_quest_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_quests)
+       OR (SELECT COUNT(*) FROM game_quest_objective_translations t WHERE t.locale = locales.locale) <> (SELECT COUNT(*) FROM game_quest_objectives)
+       OR (SELECT COUNT(*) FROM game_title_translations t WHERE t.locale = locales.locale) <> 5
+  ) THEN RAISE EXCEPTION 'Every translatable entity must have vi and en rows'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM game_character_translations vi
+    JOIN game_character_translations en USING (character_id)
+    WHERE vi.locale = 'vi' AND en.locale = 'en' AND vi.name <> en.name
+  ) THEN RAISE EXCEPTION 'Character proper names must be preserved across locales'; END IF;
   IF EXISTS (
     SELECT 1 FROM game_quest_rewards r
     LEFT JOIN game_characters c ON r.reward_type = 'character' AND c.id = r.item_id

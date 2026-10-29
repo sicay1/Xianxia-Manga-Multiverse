@@ -6,6 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Manga Nexus</title>
 	<script src="https://cdn.tailwindcss.com"></script>
+	<script src="i18n.js"></script>
 	<script src="content-bootstrap.js"></script>
 	<script src="online-config.js"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
@@ -337,6 +338,10 @@
 						class="sm:col-span-2 bg-gradient-to-r from-emerald-600 to-lime-500 text-gray-900 font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-lime-400/40 hover:shadow-[0_0_15px_rgba(180,255,100,0.6)]">
 						🎯 Nhiệm Vụ
 					</button>
+					<button onclick="showModal('settings-modal')" data-i18n="settings.open"
+						class="sm:col-span-2 bg-gradient-to-r from-slate-700 to-gray-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-105 border border-gray-400/40">
+						⚙️ Settings
+					</button>
 				</div>
 
 				<div id="quest-pins" class="mt-6 w-full max-w-md"></div>
@@ -597,6 +602,28 @@
 				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
 					<button onclick="hideModal('quests-modal')"
 						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Đóng</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Settings Modal -->
+		<div id="settings-modal" class="hidden fixed inset-0 modal-backdrop flex items-center justify-center p-4 z-50">
+			<div class="bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-md modal border border-gray-600 flex flex-col">
+				<div class="p-4 sm:p-6 border-b border-gray-700">
+					<h3 class="text-xl sm:text-2xl font-bold text-yellow-400" data-i18n="settings.title">Settings</h3>
+				</div>
+				<div class="p-6">
+					<label for="settings-language" class="block text-sm font-semibold mb-2" data-i18n="language.label">Language</label>
+					<select id="settings-language"
+						class="w-full rounded bg-gray-700 border border-gray-500 px-3 py-3 text-white">
+						<option value="vi">Tiếng Việt</option>
+						<option value="en">English</option>
+					</select>
+					<p id="settings-language-status" class="mt-3 min-h-5 text-sm text-gray-300"></p>
+				</div>
+				<div class="p-4 bg-gray-900 rounded-b-lg text-right">
+					<button onclick="hideModal('settings-modal')" data-i18n="settings.close"
+						class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Close</button>
 				</div>
 			</div>
 		</div>
@@ -2157,6 +2184,9 @@
 				case 'changelog-modal': loadChangelog(); break;
 				case 'quests-modal':
 					if (window.renderQuestJourney) window.renderQuestJourney();
+					break;
+				case 'settings-modal':
+					if (window.renderLanguageSettings) window.renderLanguageSettings();
 					break;
 			}
 		}

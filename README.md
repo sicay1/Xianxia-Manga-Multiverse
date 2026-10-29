@@ -153,3 +153,33 @@ podman compose up
 ```
 
 This intentionally removes local accounts, saves, history, and quest progress.
+
+## Languages
+
+The game supports Vietnamese (`vi`) and English (`en`). A first-time device
+uses Vietnamese when the browser locale starts with `vi`; all other browser
+locales default to English. Players can change language before login or from
+the in-game Settings modal.
+
+The explicit pre-login choice is stored on that device. After authentication,
+the preference is synchronized through the private
+`player_preferences/main` Nakama object, so restored sessions and other
+devices use the account language unless the player explicitly chooses another
+language while signing in.
+
+`get_game_content` accepts `{ "locale": "vi" }` or `{ "locale": "en" }` and
+caches each localized bundle independently. The authenticated
+`get_player_preferences` and `set_player_language` RPCs read and update the
+account preference with storage-object version checks.
+
+Localized database text is seeded by `db/init.sql`; IDs, stats, rewards,
+ordering, saves, and quest progress are language-independent. As with other
+seed changes, applying localization to an existing installation requires:
+
+```sh
+podman compose down --volumes
+podman compose up
+```
+
+This intentionally removes the local PostgreSQL volume, including accounts,
+saves, history, preferences, and quest progress.

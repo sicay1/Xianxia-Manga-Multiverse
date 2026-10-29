@@ -7,6 +7,8 @@
   const HISTORY_COLLECTION = "player_history";
   const HISTORY_KEY = "recent";
   const config = window.MANGA_NAKAMA_CONFIG;
+  const i18n = window.MANGA_I18N;
+  const tr = (key, parameters) => i18n.t(key, parameters);
 
   let client;
   let session;
@@ -25,6 +27,8 @@
   let questAvailable = true;
   let pendingQuestEvents = [];
   let reportingQuestEvents = false;
+  let preferenceVersion = "";
+  let languageExplicitThisSession = false;
 
   function setStatus(message, kind = "idle") {
     const status = document.getElementById("cloud-status");
@@ -45,10 +49,10 @@
 
   function validateCredentials(username, password) {
     if (!/^[a-z0-9_]{3,20}$/.test(username)) {
-      throw new Error("Username must be 3-20 lowercase letters, numbers, or underscores.");
+      throw new Error(tr("auth.usernameInvalid"));
     }
     if (String(password || "").length < 8) {
-      throw new Error("Password must be at least 8 characters.");
+      throw new Error(tr("auth.passwordInvalid"));
     }
   }
 
@@ -57,18 +61,25 @@
   }
 
   async function parseError(error) {
-    if (!error) return "Unknown server error.";
+    if (!error) return tr("error.generic");
     if (typeof error.json === "function") {
       try {
         const body = await error.json();
-        if (body?.message) return body.message;
-        if (body?.error) return body.error;
+        if (body?.message) return localizeServerError(body.message);
+        if (body?.error) return localizeServerError(body.error);
       } catch (_) {
         // Fall through to the ordinary Error fields.
       }
     }
-    if (typeof error.message === "string" && error.message) return error.message;
-    return "Could not connect to Nakama.";
+    if (typeof error.message === "string" && error.message) return localizeServerError(error.message);
+    return tr("error.generic");
+  }
+
+  function localizeServerError(message) {
+    const value = String(message || "");
+    if (/invalid credentials|invalid username|invalid password/i.test(value)) return tr("error.invalidCredentials");
+    if (/already exists|already registered|in use/i.test(value)) return tr("error.accountExists");
+    return value || tr("error.generic");
   }
 
   function persistSession() {
@@ -99,7 +110,7 @@
       const payload = JSON.parse(atob(session.token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
       return payload.uid;
     } catch (_) {
-      throw new Error("The Nakama session does not contain a valid player ID.");
+      throw new Error(tr("error.session"));
     }
   }
 
@@ -110,24 +121,31 @@
       <div class="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"></div>
       <div class="relative w-full max-w-sm p-7 bg-black bg-opacity-80 rounded-2xl shadow-2xl">
         <h1 class="text-4xl font-bold mb-2 text-center text-yellow-400">Manga Nexus</h1>
-        <p class="text-gray-300 text-center mb-6">Sign in to load your cloud progress</p>
+        <p class="text-gray-300 text-center mb-6" data-i18n="auth.subtitle">${tr("auth.subtitle")}</p>
         <form id="account-form" class="space-y-4">
           <div>
-            <label class="block text-sm mb-1" for="account-username">Username</label>
+            <label class="block text-sm mb-1" for="login-language" data-i18n="language.label">${tr("language.label")}</label>
+            <select id="login-language" class="w-full rounded bg-gray-800 border border-gray-600 px-3 py-2 text-white">
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm mb-1" for="account-username" data-i18n="auth.username">${tr("auth.username")}</label>
             <input id="account-username" autocomplete="username" maxlength="20"
               class="w-full rounded bg-gray-800 border border-gray-600 px-3 py-2 text-white" required>
           </div>
           <div>
-            <label class="block text-sm mb-1" for="account-password">Password</label>
+            <label class="block text-sm mb-1" for="account-password" data-i18n="auth.password">${tr("auth.password")}</label>
             <input id="account-password" type="password" autocomplete="current-password"
               class="w-full rounded bg-gray-800 border border-gray-600 px-3 py-2 text-white" required>
           </div>
           <p id="account-error" class="min-h-5 text-sm text-red-300">${message}</p>
           <div class="grid grid-cols-2 gap-3">
             <button type="submit" data-mode="login"
-              class="bg-blue-600 hover:bg-blue-700 font-bold py-2 rounded-lg">Login</button>
+              class="bg-blue-600 hover:bg-blue-700 font-bold py-2 rounded-lg" data-i18n="auth.login">${tr("auth.login")}</button>
             <button type="button" id="register-button"
-              class="bg-green-600 hover:bg-green-700 font-bold py-2 rounded-lg">Register</button>
+              class="bg-green-600 hover:bg-green-700 font-bold py-2 rounded-lg" data-i18n="auth.register">${tr("auth.register")}</button>
           </div>
         </form>
       </div>`;
@@ -136,6 +154,12 @@
       authenticate(false);
     });
     document.getElementById("register-button").addEventListener("click", () => authenticate(true));
+    const language = document.getElementById("login-language");
+    language.value = i18n.locale;
+    language.addEventListener("change", () => {
+      languageExplicitThisSession = true;
+      i18n.setLocale(language.value);
+    });
   }
 
   function setAuthBusy(isBusy) {
@@ -152,7 +176,7 @@
     try {
       validateCredentials(username, password);
       setAuthBusy(true);
-      errorBox.textContent = create ? "Creating account..." : "Signing in...";
+      errorBox.textContent = create ? tr("auth.creating") : tr("auth.signingIn");
       session = create
         ? await client.authenticateEmail(internalEmail(username), password, true, username)
         : await client.authenticateEmail("", password, false, username);
@@ -192,27 +216,26 @@
       towerEnemies: 100
     };
     if (!content || !Array.isArray(content.towerRewards) || content.towerRewards.length !== 20) {
-      throw new Error("The server returned incomplete tower reward data.");
+      throw new Error(tr("error.contentIncomplete"));
     }
     for (const [name, count] of Object.entries(expected)) {
       if (!content[name] || Object.keys(content[name]).length !== count) {
-        throw new Error(`The server returned incomplete ${name} data.`);
+        throw new Error(tr("error.contentIncomplete"));
       }
     }
     if (!content.characters.c001 || !content.wikiLinks) {
-      throw new Error("The server content is missing required starter data.");
+      throw new Error(tr("error.contentIncomplete"));
     }
     if (!Array.isArray(content.questChapters) || content.questChapters.length !== 5 ||
         content.questChapters.reduce((count, chapter) => count + (chapter.quests?.length || 0), 0) !== 40) {
-      throw new Error("The server returned incomplete quest definitions.");
+      throw new Error(tr("error.contentIncomplete"));
+    }
+    if (!["vi", "en"].includes(content.locale) || !content.titles || Object.keys(content.titles).length !== 5) {
+      throw new Error(tr("error.contentIncomplete"));
     }
   }
 
-  async function loadGameContent() {
-    const response = await client.rpc(session, "get_game_content", {});
-    const raw = response?.payload ?? response;
-    const content = typeof raw === "string" ? JSON.parse(raw) : raw;
-    validateGameContent(content);
+  function applyGameContent(content) {
     CHARACTERS_DB = content.characters;
     EQUIPMENT_DB = content.equipment;
     ENEMIES_DB = content.enemies;
@@ -221,7 +244,45 @@
     TOWER_REWARDS = content.towerRewards;
     WIKI_LINKS = content.wikiLinks;
     QUEST_CHAPTERS = content.questChapters || [];
+    TITLE_TRANSLATIONS = content.titles || {};
     GAME_CONTENT_VERSION = content.version;
+  }
+
+  async function fetchGameContent(locale = i18n.locale) {
+    const response = await client.rpc(session, "get_game_content", { locale });
+    const raw = response?.payload ?? response;
+    const content = typeof raw === "string" ? JSON.parse(raw) : raw;
+    validateGameContent(content);
+    return content;
+  }
+
+  async function loadGameContent(locale = i18n.locale) {
+    const content = await fetchGameContent(locale);
+    applyGameContent(content);
+  }
+
+  async function readPlayerPreferences() {
+    const result = rpcPayload(await client.rpc(session, "get_player_preferences", {}));
+    preferenceVersion = result.version || "";
+    return result;
+  }
+
+  async function writePlayerLanguage(language) {
+    const result = rpcPayload(await client.rpc(session, "set_player_language", {
+      language,
+      version: preferenceVersion
+    }));
+    preferenceVersion = result.version || preferenceVersion;
+    return result.language;
+  }
+
+  async function resolveAccountLanguage(isNewAccount) {
+    const preferences = await readPlayerPreferences();
+    if (!isNewAccount && !languageExplicitThisSession && preferences.language) {
+      i18n.setLocale(preferences.language);
+      return;
+    }
+    await writePlayerLanguage(i18n.locale);
   }
 
   function rpcPayload(response) {
@@ -234,12 +295,12 @@
   }
 
   function rewardLabel(reward) {
-    if (reward.type === "gold") return `${reward.amount} gold`;
-    if (reward.type === "soul_fragment") return `${reward.amount} Soul Fragments`;
-    if (reward.type === "iron_bar") return `${reward.amount} Iron Bars`;
-    if (reward.type === "character") return `Character: ${CHARACTERS_DB[reward.itemId]?.name || reward.itemId}`;
-    if (reward.type === "equipment") return `Equipment: ${EQUIPMENT_DB[reward.itemId]?.name || reward.itemId}`;
-    if (reward.type === "title") return `Title: ${reward.title}`;
+    if (reward.type === "gold") return tr("reward.gold", { amount: i18n.number(reward.amount) });
+    if (reward.type === "soul_fragment") return tr("reward.soul", { amount: i18n.number(reward.amount) });
+    if (reward.type === "iron_bar") return tr("reward.iron", { amount: i18n.number(reward.amount) });
+    if (reward.type === "character") return tr("reward.character", { name: CHARACTERS_DB[reward.itemId]?.name || reward.itemId });
+    if (reward.type === "equipment") return tr("reward.equipment", { name: EQUIPMENT_DB[reward.itemId]?.name || reward.itemId });
+    if (reward.type === "title") return tr("reward.title", { name: TITLE_TRANSLATIONS[reward.title] || reward.title });
     return reward.type;
   }
 
@@ -247,10 +308,15 @@
     const container = document.getElementById("quest-pins");
     if (!container) return;
     const user = document.getElementById("cloud-user");
-    if (user && session) user.textContent = `${session.username || "Player"}${questProgress?.activeTitle ? ` · ${questProgress.activeTitle}` : ""}`;
+    if (user && session) {
+      const title = questProgress?.activeTitle
+        ? (TITLE_TRANSLATIONS[questProgress.activeTitle] || questProgress.activeTitle)
+        : "";
+      user.textContent = `${session.username || "Player"}${title ? ` · ${title}` : ""}`;
+    }
     if (!questAvailable) {
       container.innerHTML = `<div class="rounded-lg border border-red-700 bg-red-950/60 p-3 text-sm text-red-200">
-        Quest service offline. Gameplay and cloud saving are still available.
+        ${tr("quest.offline")}
       </div>`;
       return;
     }
@@ -270,9 +336,9 @@
         state.status === "claimable" ? "border-yellow-400 bg-yellow-900/50" : "border-emerald-700 bg-gray-800/80"
       } p-3">
         <div class="flex justify-between gap-3"><strong>${quest.name}</strong><span>${progress.current}/${progress.target}</span></div>
-        <div class="mt-1 text-xs text-gray-300">${state.status === "claimable" ? "Reward ready to claim" : objective.description}</div>
+        <div class="mt-1 text-xs text-gray-300">${state.status === "claimable" ? tr("quest.rewardReady") : objective.description}</div>
       </button>`;
-    }).join("") || `<p class="text-center text-sm text-emerald-300">All available quests completed.</p>`;
+    }).join("") || `<p class="text-center text-sm text-emerald-300">${tr("quest.allComplete")}</p>`;
   }
 
   function renderQuestJourney() {
@@ -280,14 +346,14 @@
     const modal = document.getElementById("quests-modal");
     if (!list || !modal) return;
     const heading = modal.querySelector("h3");
-    if (heading) heading.textContent = "Permanent Quest Journey";
+    if (heading) heading.textContent = tr("quest.title");
     if (!questAvailable) {
-      list.innerHTML = `<div class="text-center"><p class="text-red-300 mb-4">Quest progress is temporarily unavailable.</p>
-        <button onclick="refreshQuestProgress()" class="bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded">Retry</button></div>`;
+      list.innerHTML = `<div class="text-center"><p class="text-red-300 mb-4">${tr("quest.unavailable")}</p>
+        <button onclick="refreshQuestProgress()" class="bg-blue-600 hover:bg-blue-700 font-bold py-2 px-4 rounded">${tr("common.retry")}</button></div>`;
       return;
     }
     if (!questProgress) {
-      list.innerHTML = `<p class="text-center text-gray-400">Loading quest journey...</p>`;
+      list.innerHTML = `<p class="text-center text-gray-400">${tr("quest.loading")}</p>`;
       return;
     }
     const states = questStateById();
@@ -308,13 +374,13 @@
         const rewards = quest.rewards.map(rewardLabel).join(" · ");
         return `<div class="mb-3 rounded-lg border ${colors[state.status]} p-4">
           <div class="flex items-start justify-between gap-3">
-            <div><h5 class="font-bold text-lg">${quest.name}${quest.optional ? " (Optional)" : ""}</h5>
+            <div><h5 class="font-bold text-lg">${quest.name}${quest.optional ? ` (${tr("quest.optional")})` : ""}</h5>
               <p class="text-sm text-gray-400">${quest.description}</p></div>
-            <span class="text-xs uppercase tracking-wide">${state.status}</span>
+            <span class="text-xs uppercase tracking-wide">${tr(`status.${state.status}`)}</span>
           </div>
           <ul class="mt-2 text-sm text-gray-200">${objectives}</ul>
-          <p class="mt-2 text-xs text-yellow-300">Reward: ${rewards}</p>
-          ${state.status === "claimable" ? `<button onclick="claimQuestReward('${quest.id}')" class="mt-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-2 px-4 rounded">Claim reward</button>` : ""}
+          <p class="mt-2 text-xs text-yellow-300">${tr("quest.reward")}: ${rewards}</p>
+          ${state.status === "claimable" ? `<button onclick="claimQuestReward('${quest.id}')" class="mt-3 bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-2 px-4 rounded">${tr("quest.claim")}</button>` : ""}
         </div>`;
       }).join("");
       const percent = Math.round((claimed / chapter.quests.length) * 100);
@@ -334,7 +400,7 @@
       questAvailable = false;
       renderQuestPins();
       renderQuestJourney();
-      if (!silent) showToast(`Quest service: ${await parseError(error)}`, false);
+      if (!silent) showToast(`${tr("quest.servicePrefix")}: ${await parseError(error)}`, false);
     }
   }
 
@@ -377,7 +443,7 @@
   async function claimQuestReward(questId) {
     try {
       if (dirty) await flushCloudSave();
-      if (dirty) throw new Error("Save pending progress before claiming the quest reward.");
+      if (dirty) throw new Error(tr("error.savePending"));
       const result = rpcPayload(await client.rpc(session, "claim_quest_reward", { questId }));
       gameData = patchGameData(result.gameData);
       stateVersion = result.stateVersion || stateVersion;
@@ -395,8 +461,8 @@
       const chapterComplete = chapter && chapter.quests.filter(quest => !quest.optional)
         .every(quest => states.get(quest.id)?.status === "claimed");
       showToast(chapterComplete
-        ? `Chapter complete: ${chapter.name}!`
-        : `Quest reward claimed: ${result.rewards.map(rewardLabel).join(", ")}`, true);
+        ? tr("quest.chapterComplete", { chapter: chapter.name })
+        : tr("quest.claimed", { rewards: result.rewards.map(rewardLabel).join(", ") }), true);
     } catch (error) {
       questAvailable = false;
       renderQuestJourney();
@@ -406,7 +472,7 @@
 
   async function applyEconomyAction(payload) {
     if (dirty) await flushCloudSave();
-    if (dirty) throw new Error("Cloud progress must sync before this action.");
+    if (dirty) throw new Error(tr("error.savePending"));
     const result = rpcPayload(await client.rpc(session, "apply_economy_action", payload));
     gameData = patchGameData(result.gameData);
     stateVersion = result.stateVersion || stateVersion;
@@ -421,7 +487,7 @@
     try {
       await applyEconomyAction({ action: "equip", itemType: type, itemId: id });
       hideModal(type === "character" ? "characters-modal" : "equipment-modal");
-      showToast("Equipment selection saved.", true);
+      showToast(tr("action.equipped"), true);
     } catch (error) {
       showToast(await parseError(error), false);
     }
@@ -433,7 +499,7 @@
       hideModal("upgrade-confirm-modal");
       renderModalContent(type === "character" ? "characters-modal" : "equipment-modal");
       if (!document.getElementById("item-detail-modal").classList.contains("hidden")) showItemDetail(type, id);
-      showToast("Upgrade completed and validated by Nakama.", true);
+      showToast(tr("action.upgraded"), true);
     } catch (error) {
       showToast(await parseError(error), false);
     }
@@ -443,10 +509,54 @@
     try {
       await applyEconomyAction({ action: "unlock_dungeon", dungeonId });
       renderModalContent("dungeons-modal");
-      showToast(`Unlocked ${DUNGEONS_DB[dungeonId].name}.`, true);
+      showToast(tr("action.unlocked", { name: DUNGEONS_DB[dungeonId].name }), true);
     } catch (error) {
       showToast(await parseError(error), false);
     }
+  }
+
+  async function changeLanguage(nextLanguage) {
+    const select = document.getElementById("settings-language");
+    const status = document.getElementById("settings-language-status");
+    const previousLanguage = i18n.locale;
+    if (nextLanguage === previousLanguage) return;
+    if (select) select.disabled = true;
+    if (status) {
+      status.className = "mt-3 min-h-5 text-sm text-yellow-300";
+      status.textContent = tr("settings.saving");
+    }
+    try {
+      const content = await fetchGameContent(nextLanguage);
+      await writePlayerLanguage(nextLanguage);
+      applyGameContent(content);
+      i18n.setLocale(nextLanguage);
+      updateUI();
+      updateEquippedCharacterImage("equipped-image");
+      renderQuestPins();
+      renderQuestJourney();
+      if (status) status.textContent = "";
+    } catch (error) {
+      if (select) select.value = previousLanguage;
+      if (status) {
+        status.className = "mt-3 min-h-5 text-sm text-red-300";
+        status.textContent = `${tr("settings.failed")} ${await parseError(error)}`;
+      }
+    } finally {
+      if (select) select.disabled = false;
+    }
+  }
+
+  function installSettings() {
+    const select = document.getElementById("settings-language");
+    if (!select || select.dataset.installed === "true") return;
+    select.dataset.installed = "true";
+    select.value = i18n.locale;
+    select.addEventListener("change", () => changeLanguage(select.value));
+    window.renderLanguageSettings = () => {
+      select.value = i18n.locale;
+      const status = document.getElementById("settings-language-status");
+      if (status) status.textContent = "";
+    };
   }
 
   async function renderContentError(error, isNewAccount) {
@@ -456,12 +566,12 @@
     screen.innerHTML = `
       <div class="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm"></div>
       <div class="relative w-full max-w-md p-7 bg-black bg-opacity-85 rounded-2xl shadow-2xl text-center">
-        <h1 class="text-3xl font-bold mb-3 text-red-300">Game content unavailable</h1>
-        <p class="text-gray-300 mb-2">Definitions could not be loaded from Nakama.</p>
+        <h1 class="text-3xl font-bold mb-3 text-red-300">${tr("content.unavailable")}</h1>
+        <p class="text-gray-300 mb-2">${tr("content.unavailableDescription")}</p>
         <p id="content-error-message" class="text-sm text-red-200 mb-6 break-words"></p>
         <div class="grid grid-cols-2 gap-3">
-          <button id="content-retry" class="bg-blue-600 hover:bg-blue-700 font-bold py-2 rounded-lg">Retry</button>
-          <button id="content-logout" class="bg-gray-600 hover:bg-gray-700 font-bold py-2 rounded-lg">Logout</button>
+          <button id="content-retry" class="bg-blue-600 hover:bg-blue-700 font-bold py-2 rounded-lg">${tr("common.retry")}</button>
+          <button id="content-logout" class="bg-gray-600 hover:bg-gray-700 font-bold py-2 rounded-lg">${tr("common.logout")}</button>
         </div>
       </div>`;
     document.getElementById("content-error-message").textContent = message;
@@ -504,9 +614,10 @@
 
   async function enterGame(isNewAccount) {
     try {
-      setStatus("Loading game definitions...", "syncing");
+      await resolveAccountLanguage(isNewAccount);
+      setStatus(tr("content.loading"), "syncing");
       await loadGameContent();
-      setStatus("Loading cloud progress...", "syncing");
+      setStatus(tr("cloud.loading"), "syncing");
       await readCloudData();
       if (dirty) await flushCloudSave();
       installGameChrome();
@@ -530,7 +641,7 @@
     const downloadButton = document.querySelector('button[onclick="downloadGame()"]');
     if (downloadButton) {
       downloadButton.removeAttribute("onclick");
-      downloadButton.textContent = "Logout";
+      downloadButton.textContent = tr("common.logout");
       downloadButton.addEventListener("click", logout);
     }
     const container = downloadButton?.parentElement?.parentElement;
@@ -538,11 +649,12 @@
       container.insertAdjacentHTML("afterbegin", `
         <div class="mb-3 flex items-center justify-between gap-3">
           <span id="cloud-user" class="text-sm text-cyan-300"></span>
-          <span id="cloud-status" class="text-sm text-gray-300">Cloud ready</span>
+          <span id="cloud-status" class="text-sm text-gray-300">${tr("cloud.ready")}</span>
         </div>`);
     }
     const user = document.getElementById("cloud-user");
     if (user) user.textContent = session.username || "Player";
+    installSettings();
   }
 
   function snapshotCurrencies() {
@@ -582,7 +694,7 @@
     dirty = true;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(flushCloudSave, immediate ? 0 : config.saveDebounceMs);
-    setStatus("Changes pending...", "syncing");
+    setStatus(tr("cloud.pending"), "syncing");
   }
 
   function isVersionConflict(error) {
@@ -593,7 +705,7 @@
     if (!session || saving || conflict || !dirty) return;
     saving = true;
     clearTimeout(retryTimer);
-    setStatus("Saving to cloud...", "syncing");
+    setStatus(tr("cloud.saving"), "syncing");
     const historyToWrite = historyEntries.concat(
       pendingHistory,
       createHistoryEntry("cloud_save")
@@ -632,18 +744,18 @@
       clientRevision = nextRevision;
       dirty = false;
       retryCount = 0;
-      setStatus(`Saved ${new Date().toLocaleTimeString()}`, "saved");
+      setStatus(tr("cloud.saved", { time: new Date().toLocaleTimeString(i18n.locale === "vi" ? "vi-VN" : "en-US") }), "saved");
       refreshQuestProgress(true);
     } catch (error) {
       if (isVersionConflict(error)) {
         conflict = true;
-        setStatus("Cloud conflict — reload required", "error");
-        showToast("This save changed on another tab or device. Reload to protect progress.", false);
+        setStatus(tr("cloud.conflict"), "error");
+        showToast(tr("cloud.conflictToast"), false);
       } else {
         dirty = true;
         retryCount += 1;
         const delay = Math.min(30000, 1000 * (2 ** Math.min(retryCount, 5)));
-        setStatus(`Offline — retrying in ${Math.round(delay / 1000)}s`, "error");
+        setStatus(tr("cloud.offline", { seconds: Math.round(delay / 1000) }), "error");
         retryTimer = setTimeout(flushCloudSave, delay);
       }
     } finally {

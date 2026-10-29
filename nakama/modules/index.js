@@ -1,4 +1,8 @@
-var cachedGameContent = null;
+var cachedGameContent = { en: null, vi: null };
+
+function normalizeLocale(locale) {
+  return locale === "vi" ? "vi" : "en";
+}
 
 function number(value) {
   return value === null || value === undefined ? null : Number(value);
@@ -15,7 +19,86 @@ function addStats(target, row, prefix, omitNulls) {
   }
 }
 
-function buildGameContent(nk) {
+function applyTranslations(nk, bundle, locale) {
+  var rows;
+  var row;
+  var i;
+  var quests = {};
+  locale = normalizeLocale(locale);
+
+  rows = nk.sqlQuery("SELECT * FROM game_character_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    bundle.characters[row.character_id].name = row.name;
+    bundle.characters[row.character_id].desc = row.description;
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_character_skill_translations WHERE locale = $1 ORDER BY character_id, position", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    bundle.characters[row.character_id].skills[Number(row.position)].name = row.name;
+    bundle.characters[row.character_id].skills[Number(row.position)].desc = row.description;
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_equipment_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    bundle.equipment[row.equipment_id].name = row.name;
+    if (row.description) bundle.equipment[row.equipment_id].desc = row.description;
+    else delete bundle.equipment[row.equipment_id].desc;
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_enemy_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) bundle.enemies[rows[i].enemy_id].name = rows[i].name;
+  rows = nk.sqlQuery("SELECT * FROM game_enemy_skill_translations WHERE locale = $1 ORDER BY enemy_id, position", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    bundle.enemies[row.enemy_id].skills[Number(row.position)].name = row.name;
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_dungeon_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) bundle.dungeons[rows[i].dungeon_id].name = rows[i].name;
+  rows = nk.sqlQuery(
+    "SELECT t.*, f.id FROM game_tower_floor_translations t JOIN game_tower_floors f USING (floor_number) WHERE t.locale = $1",
+    [locale]
+  );
+  for (i = 0; i < rows.length; i++) bundle.towerEnemies[rows[i].id].name = rows[i].name;
+  rows = nk.sqlQuery(
+    "SELECT t.*, f.id FROM game_tower_skill_translations t JOIN game_tower_floors f USING (floor_number) WHERE t.locale = $1 ORDER BY t.floor_number, t.position",
+    [locale]
+  );
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    bundle.towerEnemies[row.id].skills[Number(row.position)].name = row.name;
+  }
+  for (i = 0; i < bundle.questChapters.length; i++) {
+    var chapter = bundle.questChapters[i];
+    for (var q = 0; q < chapter.quests.length; q++) quests[chapter.quests[q].id] = chapter.quests[q];
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_quest_chapter_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    for (var c = 0; c < bundle.questChapters.length; c++) {
+      if (bundle.questChapters[c].id === row.chapter_id) {
+        bundle.questChapters[c].name = row.name;
+        bundle.questChapters[c].description = row.description;
+      }
+    }
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_quest_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    quests[row.quest_id].name = row.name;
+    quests[row.quest_id].description = row.description;
+  }
+  rows = nk.sqlQuery("SELECT * FROM game_quest_objective_translations WHERE locale = $1 ORDER BY quest_id, position", [locale]);
+  for (i = 0; i < rows.length; i++) {
+    row = rows[i];
+    quests[row.quest_id].objectives[Number(row.position) - 1].description = row.description;
+  }
+  bundle.titles = {};
+  rows = nk.sqlQuery("SELECT * FROM game_title_translations WHERE locale = $1", [locale]);
+  for (i = 0; i < rows.length; i++) bundle.titles[rows[i].title_key] = rows[i].display_name;
+  bundle.locale = locale;
+}
+
+function buildGameContent(nk, locale) {
   var metaRows = nk.sqlQuery(
     "SELECT schema_version, content_version FROM game_content_meta WHERE singleton = TRUE",
     []
@@ -249,7 +332,14 @@ function buildGameContent(nk) {
     });
   }
 
+  applyTranslations(nk, bundle, locale);
   return bundle;
+}
+
+function getGameContent(nk, locale) {
+  locale = normalizeLocale(locale);
+  var serialized = cachedGameContent[locale] || JSON.stringify(buildGameContent(nk, locale));
+  return JSON.parse(serialized);
 }
 
 function parsePayload(payload) {
@@ -384,7 +474,7 @@ function rpcGetQuestProgress(ctx, logger, nk, payload) {
   if (!ctx.userId) throw new Error("Authentication is required.");
   var objects = readPlayerObjects(nk, ctx.userId);
   requirePlayerState(objects);
-  var content = cachedGameContent === null ? buildGameContent(nk) : JSON.parse(cachedGameContent);
+  var content = getGameContent(nk, "en");
   return JSON.stringify(questResponse(objects.state, objects.progress, content));
 }
 
@@ -414,7 +504,7 @@ function rpcReportQuestEvents(ctx, logger, nk, payload) {
     value: objects.progress, version: objects.progressVersion || undefined,
     permissionRead: 1, permissionWrite: 0
   }]);
-  var content = cachedGameContent === null ? buildGameContent(nk) : JSON.parse(cachedGameContent);
+  var content = getGameContent(nk, "en");
   return JSON.stringify(questResponse(objects.state, objects.progress, content));
 }
 
@@ -423,7 +513,7 @@ function rpcClaimQuestReward(ctx, logger, nk, payload) {
   var questId = String(parsePayload(payload).questId || "");
   var objects = readPlayerObjects(nk, ctx.userId);
   requirePlayerState(objects);
-  var content = cachedGameContent === null ? buildGameContent(nk) : JSON.parse(cachedGameContent);
+  var content = getGameContent(nk, "en");
   var definition = null;
   for (var c = 0; c < content.questChapters.length; c++) {
     for (var q = 0; q < content.questChapters[c].quests.length; q++) {
@@ -482,7 +572,7 @@ function rpcApplyEconomyAction(ctx, logger, nk, payload) {
   var objects = readPlayerObjects(nk, ctx.userId);
   requirePlayerState(objects);
   var state = objects.state;
-  var content = cachedGameContent === null ? buildGameContent(nk) : JSON.parse(cachedGameContent);
+  var content = getGameContent(nk, "en");
   if (body.action === "equip") {
     if (body.itemType === "character") {
       if (!state.characters[body.itemId]) throw new Error("Character is not owned.");
@@ -531,18 +621,50 @@ function rpcApplyEconomyAction(ctx, logger, nk, payload) {
 
 function rpcGetGameContent(ctx, logger, nk, payload) {
   if (!ctx.userId) throw new Error("Authentication is required.");
-  if (cachedGameContent === null) {
-    cachedGameContent = JSON.stringify(buildGameContent(nk));
-    logger.info("Loaded and cached PostgreSQL game content.");
+  var locale = normalizeLocale(parsePayload(payload).locale);
+  return cachedGameContent[locale] || JSON.stringify(buildGameContent(nk, locale));
+}
+
+function rpcGetPlayerPreferences(ctx, logger, nk, payload) {
+  if (!ctx.userId) throw new Error("Authentication is required.");
+  var rows = nk.storageRead([{ collection: "player_preferences", key: "main", userId: ctx.userId }]);
+  if (!rows.length) return JSON.stringify({ language: null, version: "" });
+  return JSON.stringify({
+    language: normalizeLocale(rows[0].value && rows[0].value.language),
+    version: rows[0].version || ""
+  });
+}
+
+function rpcSetPlayerLanguage(ctx, logger, nk, payload) {
+  if (!ctx.userId) throw new Error("Authentication is required.");
+  var body = parsePayload(payload);
+  if (body.language !== "vi" && body.language !== "en") throw new Error("Unsupported language.");
+  var rows = nk.storageRead([{ collection: "player_preferences", key: "main", userId: ctx.userId }]);
+  var currentVersion = rows.length ? (rows[0].version || "") : "";
+  if (body.version !== undefined && String(body.version || "") !== currentVersion) {
+    throw new Error("Language preference changed on another device.");
   }
-  return cachedGameContent;
+  var acks = nk.storageWrite([{
+    collection: "player_preferences",
+    key: "main",
+    userId: ctx.userId,
+    value: { schemaVersion: 1, language: body.language, updatedAt: new Date().toISOString() },
+    version: currentVersion || undefined,
+    permissionRead: 1,
+    permissionWrite: 0
+  }]);
+  return JSON.stringify({ language: body.language, version: acks.length ? acks[0].version : "" });
 }
 
 function InitModule(ctx, logger, nk, initializer) {
+  cachedGameContent.en = JSON.stringify(buildGameContent(nk, "en"));
+  cachedGameContent.vi = JSON.stringify(buildGameContent(nk, "vi"));
   initializer.registerRpc("get_game_content", rpcGetGameContent);
   initializer.registerRpc("get_quest_progress", rpcGetQuestProgress);
   initializer.registerRpc("report_quest_events", rpcReportQuestEvents);
   initializer.registerRpc("claim_quest_reward", rpcClaimQuestReward);
   initializer.registerRpc("apply_economy_action", rpcApplyEconomyAction);
-  logger.info("Registered game content and quest RPCs.");
+  initializer.registerRpc("get_player_preferences", rpcGetPlayerPreferences);
+  initializer.registerRpc("set_player_language", rpcSetPlayerLanguage);
+  logger.info("Cached vi/en game content and registered game, quest, and preference RPCs.");
 }
